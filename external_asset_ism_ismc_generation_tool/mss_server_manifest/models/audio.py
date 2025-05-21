@@ -21,7 +21,7 @@ class Audio(BaseModel):
         o_track_id = other.get_param("trackID")
         if f_track_id is None or o_track_id is None:
             return False
-        return f_track_id == o_track_id
+        return f_track_id == o_track_id and self.system_bitrate == other.system_bitrate and self.system_language == other.system_language
 
     def add_param(self, name: str, value: str, value_type: str):
         self.params.append({"name": name, "value": value, "valuetype": value_type})

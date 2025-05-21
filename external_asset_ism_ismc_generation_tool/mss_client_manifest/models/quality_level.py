@@ -27,7 +27,7 @@ class QualityLevel(BaseModel):
                  buffer_time: Optional[str] = None,
                  nominal_bitrate: Optional[str] = None,
                  hardware_profile: Optional[str] = None,
-                 codec_private_data: str = "0",
+                 codec_private_data: str = "",
                  sampling_rate: Optional[str] = None,
                  max_height: Optional[str] = None,
                  max_width: Optional[str] = None,
@@ -65,7 +65,7 @@ class QualityLevel(BaseModel):
             quality_level.set("NominalBitrate", self.nominal_bitrate)
         if self.hardware_profile:
             quality_level.set("HardwareProfile", self.hardware_profile)
-        if self.codec_private_data:
+        if self.codec_private_data or self.audio_tag:
             quality_level.set("CodecPrivateData", self.codec_private_data.upper())
         if self.max_height:
             quality_level.set("MaxHeight", self.max_height)

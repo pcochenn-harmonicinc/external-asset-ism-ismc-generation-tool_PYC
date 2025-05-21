@@ -1,16 +1,18 @@
 import xml.etree.ElementTree as ET
-from typing import Optional
-
-import pycountry
+from typing import Optional, List
 
 from external_asset_ism_ismc_generation_tool.common.logger.i_logger import ILogger
 from external_asset_ism_ismc_generation_tool.common.logger.logger import Logger
-from external_asset_ism_ismc_generation_tool.mp4_data_parser.model.track_type import TrackType
+from external_asset_ism_ismc_generation_tool.media_data_parser.model.track_type import TrackType
 from external_asset_ism_ismc_generation_tool.mss_server_manifest.models.audio import Audio
 from external_asset_ism_ismc_generation_tool.mss_server_manifest.models.body import Body
 from external_asset_ism_ismc_generation_tool.mss_server_manifest.models.head import Head
 from external_asset_ism_ismc_generation_tool.mss_server_manifest.models.smil import Smil
 from external_asset_ism_ismc_generation_tool.mss_server_manifest.models.video import Video
+from external_asset_ism_ismc_generation_tool.common.common import Common
+from external_asset_ism_ismc_generation_tool.mss_server_manifest.models.text_stream import TextStream
+from external_asset_ism_ismc_generation_tool.media_data_parser.model.media_track_info import MediaTrackInfo
+from external_asset_ism_ismc_generation_tool.text_data_parser.model.text_data_info import TextDataInfo
 
 
 class IsmGenerator:
@@ -53,28 +55,59 @@ class IsmGenerator:
                 body.add_video(video)
         if text_streams:
             for text_stream in text_streams:
-                body.add_audio(text_stream)
+                IsmGenerator.__logger.info(f'Add text data to the server manifest: {text_stream}')
+                body.add_text_stream(text_stream)
         return body
 
     @staticmethod
-    def get_audios(mp4_track_infos: list) -> list:
-        mp4_audio_tracks = [track for track in mp4_track_infos if track.track_type == TrackType.AUDIO]
+    def get_audios(media_track_infos: list) -> list:
+        mp4_audio_tracks = [track for track in media_track_infos if track.track_type == TrackType.AUDIO]
         audios = []
         for track in mp4_audio_tracks:
-            language_info = pycountry.languages.lookup(track.language)
-            language = language_info.alpha_2 if language_info else track.language
-            audio = Audio(src=track.blob_name, system_bitrate=track.bit_rate, system_language=language)
+            audio = Audio(src=track.blob_name, system_bitrate=track.bit_rate, system_language=track.language)
             audio.add_param(name="trackID", value=str(track.track_id), value_type="data")
+            audio.add_param(name="trackName", value=track.track_name, value_type="data")
+            if track.index_blob_name:
+                audio.add_param(name="trackIndex", value=str(track.index_blob_name), value_type="data")
             if audio not in audios:
                 audios.append(audio)
         return audios
 
     @staticmethod
-    def get_videos(mp4_track_infos: list) -> list:
-        mp4_video_tracks = list(track for track in mp4_track_infos if track.track_type == TrackType.VIDEO)
+    def get_videos(media_track_infos: list) -> list:
+        mp4_video_tracks = list(track for track in media_track_infos if track.track_type == TrackType.VIDEO)
         videos = []
         for track in mp4_video_tracks:
             video = Video(src=track.blob_name, system_bitrate=track.bit_rate)
             video.add_param(name="trackID", value=str(track.track_id), value_type="data")
+            if track.index_blob_name:
+                video.add_param(name="trackIndex", value=str(track.index_blob_name), value_type="data")
             videos.append(video)
         return videos
+
+    @staticmethod
+    def get_text_streams(media_track_infos: List[MediaTrackInfo], text_datas: List[TextDataInfo]) -> List[TextStream]:
+        last_track_id = Common.get_last_track_id(media_track_infos)
+        text_streams_from_media = IsmGenerator.__get_text_streams_from_media(media_track_infos)
+        text_streams_from_text = IsmGenerator.__get_text_streams_from_text(text_datas, last_track_id)
+        return text_streams_from_media + text_streams_from_text
+
+    @staticmethod
+    def __get_text_streams_from_media(media_track_infos: List[MediaTrackInfo]) -> List[TextStream]:
+        text_streams = []
+        text_tracks = list(track for track in media_track_infos if track.track_type == TrackType.TEXT)
+        for track in text_tracks:
+            text_stream = TextStream(src=track.blob_name, system_bitrate=track.bit_rate)
+            text_stream.add_param(name="trackID", value=str(track.track_id), value_type="data")
+            text_streams.append(text_stream)
+        return text_streams
+
+    @staticmethod
+    def __get_text_streams_from_text(text_datas: List[TextDataInfo], last_track_id: int) -> List[TextStream]:
+        text_streams = []
+        for text_data in text_datas:
+            last_track_id += 1
+            text_stream = TextStream(src=text_data.name, system_bitrate=text_data.bit_rate)
+            text_stream.add_param(name="trackID", value=str(last_track_id), value_type="data")
+            text_streams.append(text_stream)
+        return text_streams

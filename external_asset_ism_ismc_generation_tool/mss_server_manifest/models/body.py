@@ -15,7 +15,7 @@ class Body(BaseModel):
     def add_video(self, video):
         self.switch.append(video)
 
-    def add_textstream(self, text_stream):
+    def add_text_stream(self, text_stream):
         self.switch.append(text_stream)
 
     def to_xml(self) -> ET.Element:

@@ -12,3 +12,10 @@ class BaseModel:
             result += '\t'*tabs_count + f"{attribute}: {formatted_value}\n"
 
         return result
+
+    def to_dict(self):
+        return self.__dict__
+
+    @classmethod
+    def from_dict(cls, from_dict: dict):
+        return cls(**from_dict)

@@ -9,8 +9,10 @@ The tool parses .mp4 files from an Azure container, generates .ism and .ismc man
   - azure-core==1.29.4
   - azure-storage-blob==12.8.1
   - azure-identity==1.14.1
-  - pymp4==1.4.0
+  - construct=2.8.8
   - pycountry==22.3.5
+  - webvtt-py==0.5.1
+  - ttconv==1.1.0
 
 ## Supported codecs
 ### Video codecs
@@ -18,11 +20,20 @@ The tool parses .mp4 files from an Azure container, generates .ism and .ismc man
 - HEVC
 ### Audio codecs
 - AAC-LC
-- AAC-HE
-- AAC+
+- AAC-HE (when it's compatible with AAC-LC and we interpret it as AAC-LC)
+- E-AC3
 
 ## Supported formats:
-- *.mp4 with single moov atom, without moof atoms
+# media formats:
+- .mp4
+- .mpi
+- .ismv
+- .isma
+- .cmft
+
+# text formats
+- .ttml
+- .vtt
 
 ## HowTo run
 ```
@@ -49,3 +60,8 @@ If all fields are set, only the `connection_string` field value is used. In this
 
 Azure connection string can be found in Azure Portal → Storage container → Access keys → Connection string
 
+## HowTo run with multithreading
+```
+python3 main.py -is_multithreading
+```
+Currently ISM/ISMC generation tool supports two modes: one-threaded and multi-threaded. Multi-threaded mode uses the maximum amount of threads your system can handle.
