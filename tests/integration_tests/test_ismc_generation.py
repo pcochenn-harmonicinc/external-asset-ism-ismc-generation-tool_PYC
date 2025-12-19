@@ -407,9 +407,9 @@ class TestIsmcGeneration:
     def test_check_generated_ismc_manifest_mp4_mpi_cmft(self):
         with Allure.Step("Prepare test data"):
             with Allure.Step("Get data from file"):
-                mp4_datas = Common.get_test_data_from_json(Common.get_data_file_path('tests_mpi_cmft_data.json'))['media_datas']
+                mp4_datas = Common.get_test_data_from_json(Common.get_data_file_path('test_mpi_cmft_data.json'))['media_datas']
                 assert mp4_datas
-                mp4_media_index_datas = Common.get_test_data_from_json(Common.get_data_file_path('tests_mpi_cmft_data.json'))['media_index_datas']
+                mp4_media_index_datas = Common.get_test_data_from_json(Common.get_data_file_path('test_mpi_cmft_data.json'))['media_index_datas']
                 assert mp4_media_index_datas
             with Allure.Step("Get media_track_info_list from mp4_datas"):
                 media_data: MediaData = MediaDataParser.get_media_data(media_datas=mp4_datas, media_index_datas=mp4_media_index_datas)
