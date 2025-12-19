@@ -31,6 +31,8 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Decrypt test assets
       working-directory: ./tests/data
+      env:
+        TEST_ASSET_KEY: ${{ secrets.TEST_ASSET_KEY }}
       run: |
         gpg --quiet --batch --yes --decrypt-files --passphrase="$TEST_ASSET_KEY" *.gpg
     - name: Test with pytest
