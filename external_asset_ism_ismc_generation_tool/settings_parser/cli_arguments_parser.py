@@ -17,6 +17,7 @@ class CliArgumentsParser:
         argument_parser.add_argument('-connection_string', metavar='connection_string', type=str, help="Connection string for the Azure Storage account.")
         argument_parser.add_argument('-container_name', metavar="container_name", type=str, help="Azure container name")
         argument_parser.add_argument("-is_multithreading", action="store_true", help="Enable multi-threaded mode. Default is single-threaded mode.")
+        argument_parser.add_argument("-asset_zip_name", metavar="asset_zip_name", type=str, help="Name of the asset zip file.")
         return argument_parser
 
     @classmethod
