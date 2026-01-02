@@ -17,6 +17,9 @@ tests is a module for testing external_asset_ism_ismc_generation tool.
   - allure-python-commons==2.13.5
   - pytest-xdist==2.3.0
 
+## Test assets are encrypted, they need to be decrypted with the following command and TEST_ASSET_KEY to be replaced by the actual value
+gpg --quiet --batch --yes --decrypt-files --passphrase="$TEST_ASSET_KEY" ./data/*.gpg
+
 ## HowTo run
 In <work_space>/external_asset_ism_ismc_generation_tool/external_asset_ism_ismc_generation_tool/tests
 ```

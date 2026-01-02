@@ -1,4 +1,5 @@
 import io
+import logging
 
 from azure.storage.blob import BlobServiceClient, BlobClient
 from external_asset_ism_ismc_generation_tool.common.logger.i_logger import ILogger
@@ -13,6 +14,10 @@ class AzureBlobServiceClient:
         cls.__logger = logger
 
     def __init__(self, settings: dict):
+        # Set the logging level of Azure SDK to WARNING to reduce verbosity
+        logger = logging.getLogger('azure.core.pipeline.policies.http_logging_policy')
+        logger.setLevel(logging.WARNING)
+
         if 'container_name' in settings:
             self.container_name = settings['container_name']
         else:
@@ -34,10 +39,10 @@ class AzureBlobServiceClient:
                                                         blob_name=blob_name)
         return blob_client.download_blob(offset=offset, length=length).readall()
 
-    def upload_blob_to_container(self, blob_name: str, content: str):
+    def upload_blob_to_container(self, blob_name: str, content: str, overwrite: bool = False):
         stream = io.BytesIO(content.encode())
         blob_client = self.container_client.get_blob_client(blob_name)
-        blob_client.upload_blob(stream)
+        blob_client.upload_blob(stream, overwrite=overwrite)
 
     def blob_exists(self, blob_name: str):
         blob_client = self.container_client.get_blob_client(blob_name)

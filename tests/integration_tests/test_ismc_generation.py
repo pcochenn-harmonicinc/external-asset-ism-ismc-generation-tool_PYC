@@ -492,10 +492,10 @@ class TestIsmcGeneration:
                             assert ismc_object.stream_indexes[1].chunk_datas[1].r == '1'
                     with Allure.Step("Verify StreamIndex attributes for the text track"):
                         assert ismc_object.stream_indexes[2].chunks == '8'
-                        assert ismc_object.stream_indexes[2].name == 'text_0'
+                        assert ismc_object.stream_indexes[2].name == 'Undefined'
                         assert ismc_object.stream_indexes[2].quality_levels == '1'
                         assert ismc_object.stream_indexes[2].stream_type == 'text'
-                        assert ismc_object.stream_indexes[2].url == 'QualityLevels({bitrate})/Fragments(text_0={start time})'
+                        assert ismc_object.stream_indexes[2].url == 'QualityLevels({bitrate})/Fragments(Undefined={start time})'
                         assert len(ismc_object.stream_indexes[2].quality_level_list) == 1
                         assert len(ismc_object.stream_indexes[2].chunk_datas) == 1
                         with Allure.Step("Verify QualityLevel attributes for the text track"):

@@ -35,15 +35,15 @@ class MediaFormat(Enum):
 
     @classmethod
     def is_mpi_format(cls, name: str) -> bool:
-        return name.endswith(cls.MPI.value)
+        return name.lower().endswith(cls.MPI.value)
 
     @classmethod
     def get_format(cls, name: str) -> str:
         for media_format in cls:
-            if media_format is not cls.UNKNOWN and media_format.value and name.endswith(media_format.value):
+            if media_format is not cls.UNKNOWN and media_format.value and name.lower().endswith(media_format.value):
                 return media_format.value
         return ""
 
     @staticmethod
     def _ends_with_any(name: str, suffixes: List[str]) -> bool:
-        return any(name.endswith(suffix) for suffix in suffixes)
+        return any(name.lower().endswith(suffix) for suffix in suffixes)

@@ -20,7 +20,7 @@ class BlobDataHandler:
         cls.__logger = logger
 
     @staticmethod
-    def get_data_from_blobs(az_blob_service_client: AzureBlobServiceClient) -> BlobMediaData:
+    def get_data_from_blobs(az_blob_service_client: AzureBlobServiceClient, settings: Optional[dict] = None) -> BlobMediaData:
         BlobDataHandler.__logger.info(msg="Get blobs list from Azure container")
         blobs = az_blob_service_client.get_list_of_blobs()
         if blobs is None:
@@ -32,7 +32,7 @@ class BlobDataHandler:
             if az_blob_service_client.is_multithreading:
                 threads_num = cpu_count()
                 executor = ThreadPoolExecutor(max_workers=threads_num)
-            blob_media_data: BlobMediaData = BlobDataHandler.__process_blobs(blobs, az_blob_service_client, executor)
+            blob_media_data: BlobMediaData = BlobDataHandler.__process_blobs(blobs, az_blob_service_client, executor, settings)
 
         finally:
             if executor:
@@ -41,11 +41,14 @@ class BlobDataHandler:
         return blob_media_data
 
     @staticmethod
-    def __process_blobs(blobs, az_blob_service_client: AzureBlobServiceClient, executor: ThreadPoolExecutor) -> BlobMediaData:
+    def __process_blobs(blobs, az_blob_service_client: AzureBlobServiceClient, executor: ThreadPoolExecutor, settings: Optional[dict] = None) -> BlobMediaData:
         manifest_name = ""
         media_datas = None
         media_index_datas = None
         text_datas_info = []
+        
+        # Check if VTT files should be converted to CMFT (default: True)
+        convert_webvtt = settings.get('convert_webvtt', True) if settings else True
 
         task_mapping = BlobDataHandler.__map_blob_tasks(blobs, az_blob_service_client, executor)
 
@@ -61,6 +64,12 @@ class BlobDataHandler:
                     else:
                         media_index_datas = Common.merge_dicts([media_index_datas, result])
                 elif MediaFormat.is_text_format(blob_name):
+                    # Skip VTT files if convert_webvtt is true (they will be converted to CMFT)
+                    # Only process TTML files or VTT files when convert_webvtt is false
+                    is_vtt = blob_name.lower().endswith('.vtt')
+                    if is_vtt and convert_webvtt:
+                        BlobDataHandler.__logger.info(f"Skipping VTT file {blob_name}, will use CMFT instead")
+                        continue
                     text_datas_info.append(result)
             except Exception as e:
                 BlobDataHandler.__logger.error(f"Error processing blob {blob_name}: {e}")
@@ -71,6 +80,8 @@ class BlobDataHandler:
     def __process_blob(blob, az_blob_service_client: AzureBlobServiceClient) -> Tuple[Optional[str], Optional[Union[Dict[str, Dict], TextDataInfo]]]:
         BlobDataHandler.__logger.info(msg=f"Handle blob {blob.name}")
         key, format = Common.get_key_and_format(blob.name)
+        # Normalize format to lowercase for consistent processing
+        format = format.lower() if format else format
         result = FileProcessor.process_file(format, blob.name, az_blob_service_client)
         return key, result
 

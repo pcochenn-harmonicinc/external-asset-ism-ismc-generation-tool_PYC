@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Optional
 
 from tools.pymp4.src.pymp4.parser import Box
 
@@ -51,6 +51,27 @@ class MediaTrackInfoExtractor:
         self.blob_name = blob_name
         self.mvex_atom = mvex_atom
 
+    @staticmethod
+    def __extract_language_from_filename(filename: str) -> Optional[str]:
+        """
+        Extract 3-letter language code from filename.
+        Searches for any 3-letter code separated by underscores or other delimiters.
+        Examples: espn1_ARA.cmft -> 'ara', test_eng_file.cmft -> 'eng', file_ARA_v2.vtt -> 'ara'
+        """
+        # Remove extension
+        name_without_ext = filename.rsplit('.', 1)[0]
+        
+        # Split by underscores and other common delimiters
+        import re
+        parts = re.split(r'[_\-\.]', name_without_ext)
+        
+        # Search through all parts for a 3-letter code
+        for part in parts:
+            if len(part) == 3 and part.isalpha():
+                return part.lower()
+        
+        return None
+
     def get_track_info(self, moof_fragments: dict) -> MediaTrackInfo:
         MediaTrackInfoExtractor.__logger.info(f'Get {self.track_type.value} track info from {self.blob_name}')
         if self.track_type == TrackType.VIDEO:
@@ -67,6 +88,14 @@ class MediaTrackInfoExtractor:
 
         four_cc = self.__determine_four_cc()
         chunks, bitrate = self.__extract_chunks_and_bitrate_from_moof(moof_fragments)
+        
+        # Try to get language from track metadata first, then from filename
+        # If track language is 'und' (undefined), prefer filename extraction
+        language = self.trak_parser.get_track_language()
+        if not language or language == 'und':
+            filename_lang = self.__extract_language_from_filename(self.blob_name)
+            if filename_lang:
+                language = filename_lang
 
         return MediaTrackInfo(
             track_type=TrackType.TEXT,
@@ -76,7 +105,8 @@ class MediaTrackInfoExtractor:
             four_cc=four_cc,
             chunk_datas=chunks,
             blob_name=self.blob_name,
-            codec_private_data=""
+            codec_private_data="",
+            language=language
         )
 
     def __extract_video_track_info(self, moof_fragments: dict) -> MediaTrackInfo:

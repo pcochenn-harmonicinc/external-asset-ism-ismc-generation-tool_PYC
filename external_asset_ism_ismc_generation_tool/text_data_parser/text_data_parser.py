@@ -1,9 +1,13 @@
+import io
+import re
 import webvtt
 import ttconv
 import ttconv.imsc.reader as imsc_reader
+import ttconv.imsc.writer as imsc_writer
+import ttconv.vtt.reader as vtt_reader
 from xml.etree import ElementTree as ET
 
-from typing import Tuple, Dict, List, Union
+from typing import Tuple, Dict, List, Union, Optional
 
 from external_asset_ism_ismc_generation_tool.common.logger.i_logger import ILogger
 from external_asset_ism_ismc_generation_tool.common.logger.logger import Logger
@@ -31,8 +35,29 @@ class TextDataParser:
 
         start_time, duration = TextDataParser.__parse_text_data(blob_contents)
         bit_rate = TextDataParser.__calculate_bit_rate(len(blob_contents), duration)
+        language = TextDataParser.__extract_language_code(blob_name)
 
-        return TextDataInfo(blob_name, start_time, duration, bit_rate)
+        return TextDataInfo(blob_name, start_time, duration, bit_rate, language)
+
+    @staticmethod
+    def __extract_language_code(filename: str) -> Optional[str]:
+        """
+        Extract 3-letter language code from filename.
+        Searches for any 3-letter code separated by underscores or other delimiters.
+        Examples: espn1_ARA.vtt -> 'ara', test_eng_file.vtt -> 'eng', file_ARA_v2.vtt -> 'ara'
+        """
+        # Remove extension
+        name_without_ext = filename.rsplit('.', 1)[0]
+        
+        # Split by underscores and other common delimiters
+        parts = re.split(r'[_\-\.]', name_without_ext)
+        
+        # Search through all parts for a 3-letter code
+        for part in parts:
+            if len(part) == 3 and part.isalpha():
+                return part.lower()
+        
+        return None
 
     @staticmethod
     def __parse_text_data(contents: str) -> Tuple[float, float]:
