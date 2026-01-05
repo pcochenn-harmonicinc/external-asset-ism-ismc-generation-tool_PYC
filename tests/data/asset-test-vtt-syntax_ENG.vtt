@@ -62,9 +62,9 @@ Cue 12 position:90%
 on line 9
 
 13
-00:00:30.120 --> 00:00:32.440 align:start position:100% line:10
-Cue 13 position:100%
-on line 10
+00:00:30.120 --> 00:00:32.440
+<b>Cue 13 (bold)</b>
+<i>on default position (italics)</i>
 
 14
 00:00:34.040 --> 00:00:37.760 align:center line:15
@@ -97,16 +97,16 @@ on line 40%
 on line 60%
 
 20
-00:00:50.200 --> 00:00:51.760 align:center line:80%
+00:00:50.200 --> 00:00:51.760 align:center line:70%
 <c.blue>Cue 20 (blue)</c>
-on line 80%
+on line 70%
 
 21
-00:00:51.920 --> 00:00:55.560 align:center line:90%
+00:00:51.920 --> 00:00:55.560 align:center line:80%
 <c.fuchsia>Cue 21 (fuchsia)</c>
-on line 90%
+on line 80%
 
 22
-00:00:56.880 --> 00:00:59.960 align:center line:100%
+00:00:56.880 --> 00:00:59.960 align:center line:90%
 <c.aqua>Cue 22 (aqua)</c>
-on line 100%
+on line 90%
