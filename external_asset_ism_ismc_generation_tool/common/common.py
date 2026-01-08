@@ -72,6 +72,31 @@ class Common:
         return as_completed(task_mapping) if executor else task_mapping
 
     @staticmethod
+    def validate_and_extract_language_code(potential_code: str) -> Optional[str]:
+        """
+        Validate if a string is a valid ISO 639-2/T language code using pycountry.
+        This filters out file extensions (vtt, mp4, cmft) and other non-language 3-letter words.
+        
+        Args:
+            potential_code: A 3-letter string to validate
+            
+        Returns:
+            ISO 639-2/T alpha_3 code if valid, None otherwise
+        """
+        if not potential_code or len(potential_code) != 3 or not potential_code.isalpha():
+            return None
+            
+        try:
+            language_info = pycountry.languages.lookup(potential_code)
+            if language_info and hasattr(language_info, 'alpha_3'):
+                return language_info.alpha_3.lower()
+        except LookupError:
+            # Not a valid language code
+            pass
+        
+        return None
+
+    @staticmethod
     def get_language_3_code_and_name(language_code: str):
         obsolete_language_codes = {
             'scr': 'hrv'  # Mapping 'scr' to 'hrv' for Croatian as 'scr' is obsolete now

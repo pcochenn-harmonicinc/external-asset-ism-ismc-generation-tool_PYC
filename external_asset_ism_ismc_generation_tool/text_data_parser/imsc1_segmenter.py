@@ -6,7 +6,7 @@ from external_asset_ism_ismc_generation_tool.common.logger.logger import Logger
 
 
 class Imsc1Segmenter:
-    """Segments IMSC1 content based on video segment duration."""
+    """Segments IMSC1 content into fixed-duration chunks."""
     
     __logger: ILogger = Logger("Imsc1Segmenter")
 
@@ -17,11 +17,11 @@ class Imsc1Segmenter:
     @staticmethod
     def segment(imsc1_content: str, segment_duration: float) -> List[Tuple[float, str]]:
         """
-        Segment IMSC1 content based on video segment duration.
+        Segment IMSC1 content into fixed-duration chunks.
         
         Args:
             imsc1_content: String containing IMSC1 (TTML) XML content
-            segment_duration: Duration of each segment in seconds
+            segment_duration: Duration of each segment in seconds (fixed value, typically 4.0)
             
         Returns:
             List of tuples containing (start_time, segment_xml_string)
@@ -123,9 +123,26 @@ class Imsc1Segmenter:
             Imsc1Segmenter.__logger.info(f"Created {len(segments)} segments")
             return segments
             
+        except ET.ParseError as e:
+            error_msg = f"Failed to parse IMSC1 XML: {e}"
+            Imsc1Segmenter.__logger.error(error_msg)
+            Imsc1Segmenter.__logger.error("Check that the IMSC1 content is valid XML")
+            raise ValueError(f"Failed to segment IMSC1: {error_msg}")
+            
+        except ValueError as e:
+            # Re-raise ValueError (including our own validation errors)
+            if "Failed to segment IMSC1" in str(e):
+                raise
+            error_msg = f"IMSC1 segmentation validation error: {e}"
+            Imsc1Segmenter.__logger.error(error_msg)
+            raise ValueError(f"Failed to segment IMSC1: {error_msg}")
+            
         except Exception as e:
-            Imsc1Segmenter.__logger.error(f"Error segmenting IMSC1: {e}")
-            raise ValueError(f"Failed to segment IMSC1: {e}")
+            error_type = type(e).__name__
+            error_msg = f"Unexpected error segmenting IMSC1 ({error_type}): {e}"
+            Imsc1Segmenter.__logger.error(error_msg)
+            Imsc1Segmenter.__logger.error(f"Segment duration: {segment_duration}s")
+            raise ValueError(f"Failed to segment IMSC1: {error_msg}")
 
     @staticmethod
     def __parse_time(time_str: str) -> float:

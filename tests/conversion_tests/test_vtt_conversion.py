@@ -25,7 +25,7 @@ def test_vtt_to_imsc1_conversion():
         vtt_content = vtt_content[1:]
     
     # Convert to IMSC1
-    imsc1_content = VttToImsc1Converter.convert(vtt_content)
+    imsc1_content, warnings = VttToImsc1Converter.convert(vtt_content)
     
     # Basic validation
     assert imsc1_content is not None
@@ -86,42 +86,91 @@ def test_vtt_edge_cases():
     
     # Test 1: Empty VTT file
     empty_vtt = "WEBVTT\n\n"
-    result = VttToImsc1Converter.convert(empty_vtt)
+    imsc1_content, warnings = VttToImsc1Converter.convert(empty_vtt)
     
     # Should still produce valid IMSC1 with no cues
-    assert result is not None
-    assert '<?xml' in result
-    assert 'ttml' in result
+    assert imsc1_content is not None
+    assert '<?xml' in imsc1_content
+    assert 'ttml' in imsc1_content
     
-    root = ET.fromstring(result)
+    root = ET.fromstring(imsc1_content)
     paragraphs = root.findall('.//{http://www.w3.org/ns/ttml}p')
     assert len(paragraphs) == 0, "Empty VTT should produce IMSC1 with no paragraphs"
     print("✓ Empty VTT handled correctly")
     
-    # Test 2: VTT with single simple cue
-    simple_vtt = """WEBVTT
+    # Test 2: VTT with timing syntax errors - ttconv should skip malformed timing cues
+    # Bad cues: 1 (ms format), 3 (comma instead of period)
+    # Valid cues that should be converted: 2, 4, 5 (3 total)
+    vtt_with_bad_times = """WEBVTT
 
-00:00:01.000 --> 00:00:03.000
-Hello World
+STYLE
+::cue(.yellow) { color:red; }
 
-00:00:05.000 --> 00:00:07.000
-Test Subtitle
+00:00:01.000 --> 00:00:03.00
+Cue 1 with bad time format
+
+00:00:04.000 --> 00:00:06.000
+<c.red>Cue 2 is red!</c>
+
+00:00:07.000 --> 00:00:09,000
+Cue 3, another bad time format
+
+00:00:10.000 --> 00:00:12.000
+<c.yellow>Cue 4 should be red too!</c>
 """
-    result = VttToImsc1Converter.convert(simple_vtt)
-    root = ET.fromstring(result)
+    imsc1_content, warnings = VttToImsc1Converter.convert(vtt_with_bad_times)
+    root = ET.fromstring(imsc1_content)
     paragraphs = root.findall('.//{http://www.w3.org/ns/ttml}p')
     
-    assert len(paragraphs) == 2, "Should convert 2 cues"
+    # Save the result
+    output_file = 'espn1_generated.imsc1'
+    with open(output_file, 'wb') as f:
+        f.write(imsc1_content.encode('utf-8'))
+
+    # ttconv should skip the 2 malformed timing cues and convert the 2 valid ones
+    assert len(paragraphs) == 2, f"Should convert 2 valid cues (timing errors skipped), got {len(paragraphs)}"
     
-    # Check first subtitle content
+    # Check first valid cue (Cue 2)
     first_text = ''.join(paragraphs[0].itertext()).strip()
-    assert 'Hello World' in first_text, f"Expected 'Hello World' in first subtitle, got: {first_text}"
+    assert 'Cue 2 is red!' in first_text, f"Expected 'Cue 2 is red!', got: {first_text}"
     
-    # Check second subtitle content
+    # Check second valid cue (Cue 4)
     second_text = ''.join(paragraphs[1].itertext()).strip()
-    assert 'Test Subtitle' in second_text, f"Expected 'Test Subtitle' in second subtitle, got: {second_text}"
+    assert 'Cue 4 should be red too!' in second_text, f"Expected 'Cue 4 should be red too!', got: {second_text}"
     
-    print("✓ Simple VTT conversion verified with correct content")
+    print("✓ VTT with timing errors: 2 valid cues converted, 2 malformed timing cues skipped")
+    
+    # Test 2b: VTT with malformed HTML tags - sanitization should remove bad tags
+    vtt_with_bad_html = """WEBVTT
+
+00:00:01.000 --> 00:00:03.000
+Cue 1 with </bad> closing tag
+
+00:00:04.000 --> 00:00:06.000
+Cue 2 with <invalid> opening tag
+
+00:00:07.000 --> 00:00:09.000
+Cue 3 with <b>valid bold</b> text
+"""
+    imsc1_content, warnings = VttToImsc1Converter.convert(vtt_with_bad_html, sanitize_html=True)
+    root = ET.fromstring(imsc1_content)
+    paragraphs = root.findall('.//{http://www.w3.org/ns/ttml}p')
+    
+    assert len(paragraphs) == 3, f"Should convert all 3 cues after HTML sanitization, got {len(paragraphs)}"
+    
+    # Check that malformed tags were removed but text preserved
+    first_text = ''.join(paragraphs[0].itertext()).strip()
+    assert 'Cue 1 with' in first_text and 'closing tag' in first_text, f"Expected sanitized text, got: {first_text}"
+    assert '</bad>' not in first_text, "Malformed closing tag should be removed"
+    
+    second_text = ''.join(paragraphs[1].itertext()).strip()
+    assert 'Cue 2 with' in second_text and 'opening tag' in second_text, f"Expected sanitized text, got: {second_text}"
+    assert '<invalid>' not in second_text, "Malformed opening tag should be removed"
+    
+    third_text = ''.join(paragraphs[2].itertext()).strip()
+    assert 'valid bold' in third_text, f"Valid HTML should be preserved, got: {third_text}"
+    
+    print("✓ VTT with malformed HTML: bad tags sanitized, valid tags preserved, all cues converted")
     
     # Test 3: VTT with cue settings (positioning)
     vtt_with_settings = """WEBVTT
@@ -132,8 +181,8 @@ Centered subtitle
 00:00:05.000 --> 00:00:07.000 line:10%
 Top subtitle
 """
-    result = VttToImsc1Converter.convert(vtt_with_settings)
-    root = ET.fromstring(result)
+    imsc1_content, warnings = VttToImsc1Converter.convert(vtt_with_settings)
+    root = ET.fromstring(imsc1_content)
     paragraphs = root.findall('.//{http://www.w3.org/ns/ttml}p')
     
     assert len(paragraphs) == 2, "Should convert 2 cues with settings"
@@ -159,8 +208,8 @@ def test_imsc1_against_reference():
     if vtt_content.startswith('\ufeff'):
         vtt_content = vtt_content[1:]
     
-    generated = VttToImsc1Converter.convert(vtt_content)
-    gen_root = ET.fromstring(generated)
+    imsc1_content, warnings = VttToImsc1Converter.convert(vtt_content)
+    gen_root = ET.fromstring(imsc1_content)
     
     # Check if reference IMSC1 file exists
     ref_path = Common.get_data_file_path('asset-test-vtt-syntax_ENG_REF.imsc1')
@@ -275,7 +324,7 @@ def test_imsc1_segmentation():
         vtt_content = vtt_content[1:]
     
     # Convert to IMSC1
-    imsc1_content = VttToImsc1Converter.convert(vtt_content)
+    imsc1_content, warnings = VttToImsc1Converter.convert(vtt_content)
     
     # Segment with 4 second duration (typical segment size)
     segment_duration = 4.0
@@ -305,7 +354,7 @@ def test_cmft_packaging():
         vtt_content = vtt_content[1:]
     
     # Convert to IMSC1
-    imsc1_content = VttToImsc1Converter.convert(vtt_content)
+    imsc1_content, warnings = VttToImsc1Converter.convert(vtt_content)
     
     # Segment
     segment_duration = 4.0
@@ -349,7 +398,7 @@ def test_full_vtt_to_cmft_conversion():
         vtt_content = vtt_content[1:]
     
     # Step 1: Convert to IMSC1
-    imsc1_content = VttToImsc1Converter.convert(vtt_content)
+    imsc1_content, warnings = VttToImsc1Converter.convert(vtt_content)
     assert imsc1_content is not None
     
     # Step 2: Segment
@@ -409,7 +458,7 @@ def test_compare_with_reference():
     if vtt_content.startswith('\ufeff'):
         vtt_content = vtt_content[1:]
     
-    imsc1_content = VttToImsc1Converter.convert(vtt_content)
+    imsc1_content, warnings = VttToImsc1Converter.convert(vtt_content)
     segment_duration = 4.0
     segments = Imsc1Segmenter.segment(imsc1_content, segment_duration)
     
@@ -443,6 +492,46 @@ def test_compare_with_reference():
         print(f"  {match} {box}: generated={gen_count}, reference={ref_count}")
 
 
+def test_bad_vtt_to_cmft_conversion():
+    """Test the complete VTT to CMFT conversion pipeline."""
+    # Read asset-test-vtt-syntax_ENG.vtt
+    with open(Common.get_data_file_path('asset-test-vtt-syntax_BAD.vtt'), 'r', encoding='utf-8') as f:
+        vtt_content = f.read()
+    
+    if vtt_content.startswith('\ufeff'):
+        vtt_content = vtt_content[1:]
+    
+    # Step 1: Convert to IMSC1
+    imsc1_content, warnings = VttToImsc1Converter.convert(vtt_content)
+    assert imsc1_content is not None
+    
+    # Step 2: Segment
+    segment_duration = 4.0
+    segments = Imsc1Segmenter.segment(imsc1_content, segment_duration)
+    assert len(segments) > 0
+    
+    # Step 3: Package
+    if segments:
+        last_start, _ = segments[-1]
+        total_duration = last_start + segment_duration
+    else:
+        total_duration = 0.0
+    
+    cmft_data = CmftPackager.package(segments, timescale=10000000, total_duration=total_duration)
+    assert len(cmft_data) > 0
+    
+    # Save the result
+    output_file = 'espn1_generated_BAD.cmft'
+    with open(output_file, 'wb') as f:
+        f.write(cmft_data)
+    
+    print(f"✓ Bad VTT to CMFT conversion successful")
+    print(f"  Input: asset-test-vtt-syntax_BAD.vtt")
+    print(f"  Output: {output_file} ({len(cmft_data)} bytes)")
+    print(f"  Segments: {len(segments)}")
+    print(f"  Duration: {total_duration:.2f}s")
+    
+
 if __name__ == '__main__':
     print("Running VTT to CMFT conversion tests...\n")
     
@@ -463,6 +552,9 @@ if __name__ == '__main__':
         print()
         
         test_full_vtt_to_cmft_conversion()
+        print()
+        
+        test_bad_vtt_to_cmft_conversion()
         print()
         
         test_compare_with_reference()

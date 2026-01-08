@@ -95,9 +95,27 @@ class CmftPackager:
             CmftPackager.__logger.info(f"Successfully packaged CMFT: {len(cmft_data)} bytes")
             return bytes(cmft_data)
             
+        except ValueError as e:
+            # Re-raise ValueError with context
+            if "Failed to package CMFT" in str(e):
+                raise
+            error_msg = f"CMFT packaging validation error: {e}"
+            CmftPackager.__logger.error(error_msg)
+            raise ValueError(f"Failed to package CMFT: {error_msg}")
+            
+        except struct.error as e:
+            # Binary packing errors
+            error_msg = f"CMFT binary data packing error: {e}"
+            CmftPackager.__logger.error(error_msg)
+            CmftPackager.__logger.error(f"Check segment data integrity - segments count: {len(segments)}")
+            raise ValueError(f"Failed to package CMFT: {error_msg}")
+            
         except Exception as e:
-            CmftPackager.__logger.error(f"Error packaging CMFT: {e}")
-            raise ValueError(f"Failed to package CMFT: {e}")
+            error_type = type(e).__name__
+            error_msg = f"Unexpected error packaging CMFT ({error_type}): {e}"
+            CmftPackager.__logger.error(error_msg)
+            CmftPackager.__logger.error(f"Segments count: {len(segments)}, timescale: {timescale}, duration: {total_duration}")
+            raise ValueError(f"Failed to package CMFT: {error_msg}")
 
     @staticmethod
     def __create_ftyp_box() -> bytes:

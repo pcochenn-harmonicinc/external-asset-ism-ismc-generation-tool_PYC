@@ -18,6 +18,7 @@ class CliArgumentsParser:
         argument_parser.add_argument('-container_name', metavar="container_name", type=str, help="Azure container name")
         argument_parser.add_argument("-is_multithreading", action="store_true", help="Enable multi-threaded mode. Default is single-threaded mode.")
         argument_parser.add_argument("-asset_zip_name", metavar="asset_zip_name", type=str, help="Name of the asset zip file.")
+        argument_parser.add_argument("-local_copy", action="store_true", help="Create local copy of ISM/ISMC files.")
         return argument_parser
 
     @classmethod

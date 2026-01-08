@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import re
 
 from external_asset_ism_ismc_generation_tool.common.logger.i_logger import ILogger
@@ -8,6 +8,7 @@ from external_asset_ism_ismc_generation_tool.text_data_parser.vtt_to_imsc1_conve
 from external_asset_ism_ismc_generation_tool.text_data_parser.imsc1_segmenter import Imsc1Segmenter
 from external_asset_ism_ismc_generation_tool.text_data_parser.cmft_packager import CmftPackager
 from external_asset_ism_ismc_generation_tool.media_data_parser.media_box_extractor.media_box_extractor import MediaBoxExtractor
+from external_asset_ism_ismc_generation_tool.text_data_parser.model.conversion_summary import ConversionSummary
 
 from external_asset_ism_ismc_generation_tool.common.common import Common
 from external_asset_ism_ismc_generation_tool.media_data_parser.model.media_format import MediaFormat
@@ -26,10 +27,12 @@ class VttToCmftConverter:
     def __extract_language_from_filename(filename: str) -> str:
         """
         Extract 3-letter language code from filename.
-        Searches for any 3-letter code separated by underscores or other delimiters.
+        Searches for any 3-letter code separated by underscores or other delimiters,
+        and validates it using pycountry to ensure it's a valid ISO 639-2/T language code.
+        This filters out file extensions like 'vtt' and other non-language codes.
         
         Args:
-            filename: VTT filename (e.g., 'espn1_ARA.vtt')
+            filename: VTT filename (e.g., 'espn1_ARA.vtt', 'asset-test-vtt-syntax_ENG.vtt')
             
         Returns:
             ISO 639-2/T language code or 'und' if not found
@@ -40,15 +43,16 @@ class VttToCmftConverter:
         # Split by underscores and other common delimiters
         parts = re.split(r'[_\-\.]', name_without_ext)
         
-        # Search through all parts for a 3-letter code
+        # Search through all parts for a valid language code
         for part in parts:
-            if len(part) == 3 and part.isalpha():
-                return part.lower()
+            validated_code = Common.validate_and_extract_language_code(part)
+            if validated_code:
+                return validated_code
         
         return 'und'
 
     @staticmethod
-    def convert_vtt_files_in_container(az_blob_service_client: AzureBlobServiceClient) -> List[str]:
+    def convert_vtt_files_in_container(az_blob_service_client: AzureBlobServiceClient) -> ConversionSummary:
         """
         Find and convert all WebVTT files in the Azure container to CMFT format.
         
@@ -56,7 +60,7 @@ class VttToCmftConverter:
             az_blob_service_client: Azure blob service client
             
         Returns:
-            List of CMFT filenames created
+            ConversionSummary with results for all files
         """
         VttToCmftConverter.__logger.info("Starting WebVTT to CMFT conversion process")
         
@@ -67,9 +71,8 @@ class VttToCmftConverter:
                 VttToCmftConverter.__logger.warning("No blobs found in container")
                 return []
             
-            # Find VTT files and video files
+            # Find VTT files
             vtt_files = []
-            video_files = []
             
             for blob in blobs:
                 VttToCmftConverter.__logger.info(f"Processing blob: {blob.name}")
@@ -81,44 +84,36 @@ class VttToCmftConverter:
                 
                 if format_lower == MediaFormat.VTT.value.lower():
                     vtt_files.append(blob.name)
-                # Check for all video file formats
-                elif format_lower in [MediaFormat.MP4.value.lower(), 
-                                     MediaFormat.MPI.value.lower(),
-                                     MediaFormat.ISMV.value.lower(),
-                                     MediaFormat.ISMA.value.lower()]:
-                    video_files.append(blob.name)
+            
+            summary = ConversionSummary()
             
             if not vtt_files:
                 VttToCmftConverter.__logger.info("No VTT files found in container")
-                return []
+                return summary
             
             VttToCmftConverter.__logger.info(f"Found {len(vtt_files)} VTT file(s): {vtt_files}")
             
-            if not video_files:
-                VttToCmftConverter.__logger.error(f"No video/media files found - cannot determine segment duration")
-                raise ValueError("No video files found in container to determine segment duration")
-            
-            # Set fixed segment duration
+            # Use fixed segment duration as per specification
             segment_duration = 4.0
             
             VttToCmftConverter.__logger.info(f"Using segment duration: {segment_duration}s")
             
             # Convert each VTT file
-            created_files = []
             for vtt_filename in vtt_files:
                 try:
-                    cmft_filename = VttToCmftConverter.convert_vtt_to_cmft(
+                    warnings = VttToCmftConverter.convert_vtt_to_cmft(
                         vtt_filename,
                         az_blob_service_client,
                         segment_duration
                     )
-                    created_files.append(cmft_filename)
+                    summary.add_success(vtt_filename, warnings)
                 except Exception as e:
-                    VttToCmftConverter.__logger.error(f"Failed to convert {vtt_filename}: {e}")
-                    # Continue with other files
+                    error_msg = str(e).replace(f"Failed to convert {vtt_filename} to CMFT: ", "")
+                    VttToCmftConverter.__logger.error(f"Failed to convert {vtt_filename}: {error_msg}")
+                    summary.add_failure(vtt_filename, error_msg)
             
-            VttToCmftConverter.__logger.info(f"Successfully converted {len(created_files)} VTT file(s) to CMFT")
-            return created_files
+            VttToCmftConverter.__logger.info(f"Successfully converted {summary.successful}/{summary.total} VTT file(s) to CMFT")
+            return summary
             
         except Exception as e:
             VttToCmftConverter.__logger.error(f"Error in VTT to CMFT conversion process: {e}")
@@ -129,7 +124,7 @@ class VttToCmftConverter:
         vtt_filename: str,
         az_blob_service_client: AzureBlobServiceClient,
         segment_duration: float
-    ) -> str:
+    ) -> List[str]:
         """
         Convert a single WebVTT file to CMFT format.
         
@@ -139,7 +134,7 @@ class VttToCmftConverter:
             segment_duration: Duration of each segment in seconds
             
         Returns:
-            Name of the created CMFT file
+            List of warning messages from sanitization
         """
         VttToCmftConverter.__logger.info(f"Converting {vtt_filename} to CMFT")
         
@@ -159,27 +154,12 @@ class VttToCmftConverter:
             VttToCmftConverter.__logger.info(f"Language code for IMSC1: {language_code}")
             
             # 2. Convert VTT to IMSC1
-            imsc1_content = VttToImsc1Converter.convert(vtt_content, language_code)
+            imsc1_content, warnings = VttToImsc1Converter.convert(vtt_content, language_code)
             VttToCmftConverter.__logger.info("Converted VTT to IMSC1")
-            
-            # Generate IMSC1 filename
-            imsc1_filename = vtt_filename.rsplit('.', 1)[0] + '.imsc1'
-
-            with open(imsc1_filename, 'wb') as f:
-                f.write(imsc1_content.encode('utf-8'))
             
             # 3. Segment IMSC1
             segments = Imsc1Segmenter.segment(imsc1_content, segment_duration)
             VttToCmftConverter.__logger.info(f"Segmented IMSC1 into {len(segments)} segments")
-            
-            # Generate IMSC1 segmented filename
-            imsc1_segmented_filename = vtt_filename.rsplit('.', 1)[0] + '.imsc1seg'
-
-            with open(imsc1_segmented_filename, 'wb') as f:
-                for idx, (start_time, imsc1_xml) in enumerate(segments):
-                    # Convert XML to bytes
-                    xml_bytes = imsc1_xml.encode('utf-8')
-                    f.write(xml_bytes)
             
             if not segments:
                 VttToCmftConverter.__logger.warning("No segments created - empty subtitle file?")
@@ -193,10 +173,6 @@ class VttToCmftConverter:
                 total_duration = 0.0
             
             # 4. Package into CMFT
-            # Extract language code from VTT filename
-            language_code = VttToCmftConverter.__extract_language_from_filename(vtt_filename)
-            VttToCmftConverter.__logger.info(f"Extracted language code: {language_code}")
-            
             cmft_data = CmftPackager.package(segments, timescale=10000000, total_duration=total_duration, language_code=language_code)
             VttToCmftConverter.__logger.info(f"Packaged CMFT: {len(cmft_data)} bytes")
             
@@ -204,18 +180,11 @@ class VttToCmftConverter:
             cmft_filename = vtt_filename.rsplit('.', 1)[0] + '.cmft'
             
             # 6. Upload to Azure container
-            # Note: upload_blob_to_container expects string, but we have bytes
-            # We need to upload bytes directly using the blob client
             blob_client = az_blob_service_client.container_client.get_blob_client(cmft_filename)
             blob_client.upload_blob(cmft_data, overwrite=True)
             VttToCmftConverter.__logger.info(f"Uploaded {cmft_filename} to container")
             
-            # 7. Save local copy for verification
-            with open(cmft_filename, 'wb') as f:
-                f.write(cmft_data)
-            VttToCmftConverter.__logger.info(f"Saved local copy: {cmft_filename}")
-            
-            return cmft_filename
+            return warnings
             
         except Exception as e:
             VttToCmftConverter.__logger.error(f"Error converting {vtt_filename} to CMFT: {e}")

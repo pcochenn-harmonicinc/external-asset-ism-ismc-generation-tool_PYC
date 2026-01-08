@@ -55,9 +55,13 @@ class MediaTrackInfoExtractor:
     def __extract_language_from_filename(filename: str) -> Optional[str]:
         """
         Extract 3-letter language code from filename.
-        Searches for any 3-letter code separated by underscores or other delimiters.
-        Examples: espn1_ARA.cmft -> 'ara', test_eng_file.cmft -> 'eng', file_ARA_v2.vtt -> 'ara'
+        Searches for any 3-letter code separated by underscores or other delimiters,
+        and validates it using pycountry to ensure it's a valid ISO 639-2/T language code.
+        This filters out file extensions like 'cmft', 'vtt' and other non-language codes.
+        Examples: espn1_ARA.cmft -> 'ara', asset-test-vtt-syntax_ENG.cmft -> 'eng'
         """
+        from external_asset_ism_ismc_generation_tool.common.common import Common
+        
         # Remove extension
         name_without_ext = filename.rsplit('.', 1)[0]
         
@@ -65,10 +69,11 @@ class MediaTrackInfoExtractor:
         import re
         parts = re.split(r'[_\-\.]', name_without_ext)
         
-        # Search through all parts for a 3-letter code
+        # Search through all parts for a valid language code
         for part in parts:
-            if len(part) == 3 and part.isalpha():
-                return part.lower()
+            validated_code = Common.validate_and_extract_language_code(part)
+            if validated_code:
+                return validated_code
         
         return None
 
