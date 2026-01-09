@@ -215,7 +215,7 @@ class MediaDataParser:
                     MediaDataParser.__logger.error(f"Text track - Could not resolve language '{track.language}': {e}")
                     track.track_name = "Undefined"
             else:
-                track.track_name = "Undefined"
+                track.track_name = ""
                 MediaDataParser.__logger.warning(f"Text track - No valid language code, using 'Undefined'")
             
             # Handle duplicate language names
