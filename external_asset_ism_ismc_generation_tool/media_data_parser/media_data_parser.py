@@ -205,8 +205,8 @@ class MediaDataParser:
         # Process text tracks (CMFT files from VTT conversion)
         text_track_names_list = []
         for track in filtered_text_tracks:
-            # Get language code and full name, with fallback to "Undefined"
             if track.language and track.language != 'und':
+                # Get language code and full name, with fallback to "Undefined"
                 try:
                     language_code, language_name = Common.get_language_3_code_and_name(track.language)
                     track.language = language_code
@@ -216,7 +216,7 @@ class MediaDataParser:
                     track.track_name = "Undefined"
             else:
                 track.track_name = ""
-                MediaDataParser.__logger.warning(f"Text track - No valid language code, using 'Undefined'")
+                MediaDataParser.__logger.warning(f"Text track - No language code")
             
             # Handle duplicate language names
             if track not in text_track_names_list:

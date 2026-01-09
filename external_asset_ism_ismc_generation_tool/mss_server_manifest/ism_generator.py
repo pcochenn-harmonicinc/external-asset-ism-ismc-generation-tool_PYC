@@ -113,15 +113,15 @@ class IsmGenerator:
         for text_data in text_datas:
             last_track_id += 1
             
-            # Get track name from language code or use "Undefined" as fallback
             if text_data.language and text_data.language != 'und':
+                # Get track name from language code or use "Undefined" as fallback
                 try:
                     language_code, language_name = Common.get_language_3_code_and_name(text_data.language)
                     track_name = language_name
                 except Exception:
                     track_name = "Undefined"
             else:
-                track_name = "Undefined"
+                track_name = ""
             
             text_stream = TextStream(
                 src=text_data.name, 
