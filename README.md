@@ -12,7 +12,7 @@ The tool parses .mp4 and .cmft files from an Azure container, generates .ism and
   - construct==2.8.8
   - pycountry==22.3.5
   - webvtt-py==0.5.1
-  - ttconv==1.1.0
+  - ttconv==1.2.0
 
 ## Supported codecs
 ### Video codecs
@@ -32,8 +32,8 @@ The tool parses .mp4 and .cmft files from an Azure container, generates .ism and
 - .cmft
 
 # text formats
-- .ttml
-- .vtt
+- .ttml (raw mode only)
+- .vtt (raw mode and conversion to CMFT)
 
 ## HowTo run
 ```
@@ -60,58 +60,21 @@ If all fields are set, only the `connection_string` field value is used. In this
 
 Azure connection string can be found in Azure Portal → Storage container → Access keys → Connection string
 
-## HowTo run with multithreading
+## Configuration Options
+
+### command-line
 ```
 python3 main.py -is_multithreading
 ```
 Currently ISM/ISMC generation tool supports two modes: one-threaded and multi-threaded. Multi-threaded mode uses the maximum amount of threads your system can handle.
 
-## HowTo run with local generation of ISM/ISMC (debug)
 ```
-python3 main.py -local_copy
+python3 main.py --local_copy
 ```
+Run with local generation of ISM/ISMC (debug)
 
-## Utilities for Azure operation
-```bash
-python3 upload_asset.py     # unzip and upload an asset in Azure Blob (before calling main.py)
-python3 remove_asset.py     # remove an asset from Azure Blob
-```
-
-## Testing
-
-The project includes comprehensive test coverage for VTT to CMFT conversion:
-
-- **tests/conversion_tests/test_vtt_conversion.py**: 8 tests for VTT to IMSC1 conversion functionality
-- **tests/conversion_tests/test_error_handling.py**: 11 tests for error handling and sanitization
-- Total: 19 tests covering conversion pipeline, error cases, and HTML sanitization
-
-Run tests with:
-```bash
-pytest tests/conversion_tests/ -v
-```
-
-## Key Directories
-
-- `azure_client/` - Azure API management
-- `file_processor/` - routing of file processing
-- `media_data_parser/` - Processing of MP4 files
-- `text_data_parser/` - Processing of text files (WebVTT and TTML)
-
-## VTT to CMFT feature
-
-A new feature has been added: converting WebVTT files found in the Azure container to CMFT files before manifest generation.
-
-### Process Overview
-
-This is a 5-step operation that runs automatically when `convert_webvtt=true`:
-
-WebVTT files in the container are detected based on their extension (.vtt), then converted to MP4/CMFT files and updated to the Blob container.
-
-This process runs before the `generate_manifests()` call, so that created CMFT files will be processed during the manifest generation.
-
-## Configuration Options
-
-The application supports the following configuration options in `azure_config.json`:
+### Configuration file
+The application also supports the following configuration options in `azure_config.json`:
 
 ### overwrite_manifest (boolean, default: false)
 Controls manifest file overwriting behavior:
@@ -124,6 +87,42 @@ Controls how WebVTT files are handled:
 - **false**: VTT files are added to manifests as raw WebVTT (FourCC="WVTT")
 - **true**: VTT files are converted to IMSC1, packaged as CMFT, and added to manifests as CMFT (FourCC="IMSC")
 - **Note**: When set to `true`, manifests are automatically regenerated to include the converted CMFT files
+
+## Utilities for Azure
+```bash
+python3 upload_asset.py     # unzip and upload an asset in Azure Blob (before calling the main process)
+python3 remove_asset.py     # remove an asset from Azure Blob
+```
+
+## Testing
+
+Run tests with:
+```bash
+pytest
+pytest tests/integration_tests/ -v # run test subset for manifest generation
+pytest tests/conversion_tests/ -v # run test subset for manifest generation
+```
+
+## Key Directories
+
+- `azure_client/` - Azure API management
+- `blob_data_handler/` - Azure API management
+- `file_processor/` - routing of file processing
+- `media_data_parser/` - Processing of MP4 files
+- `mss_client_manifest/` - Generation of ISMC manifest
+- `mss_server_manifest/` - Generation of ISM manifest
+- `text_data_parser/` - Processing of text files (WebVTT and TTML)
+
+## VTT to CMFT feature
+
+A new feature has been added: converting WebVTT files found in the Azure container to CMFT files before manifest generation.
+
+### Process Overview
+
+It runs automatically when `convert_webvtt=true`:
+WebVTT files in the container are detected based on their extension (.vtt), then converted to MP4/CMFT files and updated to the Blob container.
+
+This process runs before the `generate_manifests()` call, so that created CMFT files will be processed during the manifest generation.
 
 ## Implementation Details
 
