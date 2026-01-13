@@ -61,7 +61,7 @@ def generate_manifests(settings: dict) -> ManifestResult:
     
     az_blob_service_client: AzureBlobServiceClient = AzureBlobServiceClient(settings)
 
-    blob_media_data : BlobMediaData = BlobDataHandler.get_data_from_blobs(az_blob_service_client, settings)
+    blob_media_data: BlobMediaData = BlobDataHandler.get_data_from_blobs(az_blob_service_client, settings)
     media_data: MediaData = MediaDataParser.get_media_data(blob_media_data.media_datas, blob_media_data.media_index_datas, settings.get('is_multithreading', False))
 
     result = ManifestResult(manifest_name=blob_media_data.manifest_name)
