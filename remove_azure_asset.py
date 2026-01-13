@@ -22,9 +22,13 @@ def remove_azure_asset(settings: dict):
         raise KeyError("Required setting 'container_name' is missing or empty.")
 
     container_client = az_blob_service_client.blob_service_client.get_container_client(container_name)
-    container_client.delete_container()
-    logger.info(f"Container {container_name} is deleted")
-    print(f"Container {container_name} is deleted")
+    try:
+        container_client.delete_container()
+        logger.info(f"Container {container_name} is deleted")
+        print(f"Container {container_name} is deleted")
+    except Exception as exc:
+        logger.error(f"Failed to delete container {container_name}: {exc}")
+        print(f"Failed to delete container {container_name}. See logs for details.")
 
 
 if __name__ == '__main__':
