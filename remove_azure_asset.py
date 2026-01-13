@@ -16,7 +16,10 @@ def remove_azure_asset(settings: dict):
     az_blob_service_client: AzureBlobServiceClient = AzureBlobServiceClient(settings)
 
     # Cleanup: Delete the containers and their contents after the test
-    container_name = settings['container_name']
+    container_name = settings.get('container_name')
+    if not container_name:
+        logger.error("Required setting 'container_name' is missing or empty.")
+        raise KeyError("Required setting 'container_name' is missing or empty.")
 
     container_client = az_blob_service_client.blob_service_client.get_container_client(container_name)
     container_client.delete_container()
