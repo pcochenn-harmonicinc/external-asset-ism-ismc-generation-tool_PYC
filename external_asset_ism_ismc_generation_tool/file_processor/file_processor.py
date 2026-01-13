@@ -29,7 +29,7 @@ class FileProcessor:
         return media_data
 
     @staticmethod
-    def __process_ttml_vtt(blob_name: str, az_blob_service_client: AzureBlobServiceClient) -> TextDataInfo:
+    def __process_ttml_vtt(blob_name: str, az_blob_service_client: AzureBlobServiceClient) -> Optional[TextDataInfo]:
         text_data_info = TextDataParser.get_text_data_info(blob_name, az_blob_service_client)
         return text_data_info
 

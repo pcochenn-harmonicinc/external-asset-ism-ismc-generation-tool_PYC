@@ -76,17 +76,16 @@ Run with local generation of ISM/ISMC (debug)
 ### Configuration file
 The application also supports the following configuration options in `azure_config.json`:
 
-### overwrite_manifest (boolean, default: false)
-Controls manifest file overwriting behavior:
-- **false**: Existing manifest files (.ism/.ismc) in the container are not regenerated
-- **true**: Manifest files are regenerated even if they already exist in the container
-- **Note**: This option is automatically set to `true` when `convert_webvtt=true`
+### Manifest Generation Behavior
+When manifests are generated:
+- If **no manifest exists**: A new manifest file (.ism/.ismc) is created with the standard name
+- If **a manifest already exists**: A new manifest is generated with the suffix `_new` appended to the filename (e.g., `asset_new.ism`, `asset_new.ismc`)
+- This ensures existing manifests are preserved while allowing new manifests to be generated
 
 ### convert_webvtt (boolean, default: false)
 Controls how WebVTT files are handled:
 - **false**: VTT files are added to manifests as raw WebVTT (FourCC="WVTT")
 - **true**: VTT files are converted to IMSC1, packaged as CMFT, and added to manifests as CMFT (FourCC="IMSC")
-- **Note**: When set to `true`, manifests are automatically regenerated to include the converted CMFT files
 
 ## Utilities for Azure
 ```bash

@@ -68,41 +68,44 @@ def generate_manifests(settings: dict) -> ManifestResult:
     
     # Generate and upload server manifest (.ism)
     server_manifest_name = f'{blob_media_data.manifest_name}.ism'
-    overwrite_manifest = settings.get('overwrite_manifest', False) or settings.get('convert_webvtt', False)
-    if overwrite_manifest or not az_blob_service_client.blob_exists(server_manifest_name):
-        audios = IsmGenerator.get_audios(media_track_infos=media_data.media_track_info_list)
-        videos = IsmGenerator.get_videos(media_track_infos=media_data.media_track_info_list)
-        text_streams = IsmGenerator.get_text_streams(media_data.media_track_info_list, blob_media_data.text_data_info_list)
-        ism_xml_string = IsmGenerator.generate(blob_media_data.manifest_name, audios=audios, videos=videos, text_streams=text_streams)
+    
+    # Check if manifest already exists - if so, generate with '_new' suffix
+    if az_blob_service_client.blob_exists(server_manifest_name):
+        server_manifest_name = f'{blob_media_data.manifest_name}_new.ism'
+        logger.info(f"Existing manifest found, generating new manifest as {server_manifest_name}")
+    
+    audios = IsmGenerator.get_audios(media_track_infos=media_data.media_track_info_list)
+    videos = IsmGenerator.get_videos(media_track_infos=media_data.media_track_info_list)
+    text_streams = IsmGenerator.get_text_streams(media_data.media_track_info_list, blob_media_data.text_data_info_list)
+    ism_xml_string = IsmGenerator.generate(blob_media_data.manifest_name, audios=audios, videos=videos, text_streams=text_streams)
 
-        # Create local copy of ISM file
-        if (settings.get('local_copy', False)):
-            with open(server_manifest_name, 'wb') as f:
-                f.write(ism_xml_string.encode('utf-8'))
+    # Create local copy of ISM file
+    if (settings.get('local_copy', False)):
+        with open(server_manifest_name, 'wb') as f:
+            f.write(ism_xml_string.encode('utf-8'))
 
-        az_blob_service_client.upload_blob_to_container(server_manifest_name, ism_xml_string, overwrite=overwrite_manifest)
-        logger.info(f"{server_manifest_name} is created and stored to the {az_blob_service_client.container_client.container_name} container")
-        result.ism_created = True
-    else:
-        logger.warning(f"{server_manifest_name} already exists")
-        result.ism_skipped = True
+    az_blob_service_client.upload_blob_to_container(server_manifest_name, ism_xml_string, overwrite=False)
+    logger.info(f"{server_manifest_name} is created and stored to the {az_blob_service_client.container_client.container_name} container")
+    result.ism_created = True
 
     # Generate and upload client manifest (.ismc)
     client_manifest_name = f'{blob_media_data.manifest_name}.ismc'
-    if overwrite_manifest or not az_blob_service_client.blob_exists(client_manifest_name):
-        ismc_xml_string = IsmcGenerator.generate(duration=media_data.media_duration, media_track_infos=media_data.media_track_info_list, text_data_info_list=blob_media_data.text_data_info_list)
+    
+    # Check if manifest already exists - if so, generate with '_new' suffix
+    if az_blob_service_client.blob_exists(client_manifest_name):
+        client_manifest_name = f'{blob_media_data.manifest_name}_new.ismc'
+        logger.info(f"Existing manifest found, generating new manifest as {client_manifest_name}")
+    
+    ismc_xml_string = IsmcGenerator.generate(duration=media_data.media_duration, media_track_infos=media_data.media_track_info_list, text_data_info_list=blob_media_data.text_data_info_list)
 
-        # Create local copy of ISMC file
-        if (settings.get('local_copy', False)):
-            with open(client_manifest_name, 'wb') as f:
-                f.write(ismc_xml_string.encode('utf-8'))
+    # Create local copy of ISMC file
+    if (settings.get('local_copy', False)):
+        with open(client_manifest_name, 'wb') as f:
+            f.write(ismc_xml_string.encode('utf-8'))
 
-        az_blob_service_client.upload_blob_to_container(client_manifest_name, ismc_xml_string, overwrite=overwrite_manifest)
-        logger.info(f"{client_manifest_name} is created and stored to the {az_blob_service_client.container_client.container_name} container")
-        result.ismc_created = True
-    else:
-        logger.warning(f"{client_manifest_name} already exists")
-        result.ismc_skipped = True
+    az_blob_service_client.upload_blob_to_container(client_manifest_name, ismc_xml_string, overwrite=False)
+    logger.info(f"{client_manifest_name} is created and stored to the {az_blob_service_client.container_client.container_name} container")
+    result.ismc_created = True
     
     return result
 

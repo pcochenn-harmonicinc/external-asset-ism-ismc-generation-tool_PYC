@@ -46,9 +46,9 @@ class VttToCmftConverter:
             vtt_files = []
             
             for blob in blobs:
-                VttToCmftConverter.__logger.debug(f"Processing blob: {blob.name}")
+                VttToCmftConverter.__logger.info(f"Processing blob: {blob.name}")
                 key, format_ext = Common.get_key_and_format(blob.name)
-                VttToCmftConverter.__logger.debug(f"Extracted key: {key}, format: {format_ext}")
+                VttToCmftConverter.__logger.info(f"Extracted key: {key}, format: {format_ext}")
                 format_lower = format_ext.lower()                
                 if format_lower == MediaFormat.VTT.value.lower():
                     vtt_files.append(blob.name)
