@@ -124,8 +124,12 @@ Cue 3, another bad time format
     
     # Save the result
     output_file = 'espn1_generated.imsc1'
-    with open(output_file, 'wb') as f:
-        f.write(imsc1_content.encode('utf-8'))
+    try:
+        with open(output_file, 'wb') as f:
+            f.write(imsc1_content.encode('utf-8'))
+    finally:
+        if os.path.exists(output_file):
+            os.remove(output_file)
 
     # ttconv should skip the 2 malformed timing cues and convert the 2 valid ones
     assert len(paragraphs) == 2, f"Should convert 2 valid cues (timing errors skipped), got {len(paragraphs)}"
