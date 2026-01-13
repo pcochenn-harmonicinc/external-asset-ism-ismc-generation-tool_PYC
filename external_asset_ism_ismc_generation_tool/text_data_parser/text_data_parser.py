@@ -43,26 +43,6 @@ class TextDataParser:
             return None
 
     @staticmethod
-    def __extract_language_code(filename: str) -> Optional[str]:
-        """
-        Extract 3-letter language code from filename.
-        Searches for any 3-letter code separated by underscores or other delimiters.
-        Examples: espn1_ARA.vtt -> 'ara', test_eng_file.vtt -> 'eng', file_ARA_v2.vtt -> 'ara'
-        """
-        # Remove extension
-        name_without_ext = filename.rsplit('.', 1)[0]
-        
-        # Split by underscores and other common delimiters
-        parts = re.split(r'[_\-\.]', name_without_ext)
-        
-        # Search through all parts for a 3-letter code
-        for part in parts:
-            if len(part) == 3 and part.isalpha():
-                return part.lower()
-        
-        return None
-
-    @staticmethod
     def __parse_text_data(contents: str) -> Tuple[float, float]:
         text_file = TextDataParser.__parse_text_file(contents)
         return TextDataParser.__get_start_and_duration(text_file)    
