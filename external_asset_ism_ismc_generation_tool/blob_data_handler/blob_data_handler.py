@@ -47,8 +47,8 @@ class BlobDataHandler:
         media_index_datas = None
         text_datas_info = []
         
-        # Check if VTT files should be converted to CMFT (default: True)
-        convert_webvtt = settings.get('convert_webvtt', True) if settings else True
+        # Check if VTT files should be converted to CMFT (default: False)
+        convert_webvtt = settings.get('convert_webvtt', False) if settings else False
         
         # Convert iterator to list to allow multiple iterations
         blobs_list = list(blobs)
