@@ -115,8 +115,8 @@ if __name__ == '__main__':
     overall_summary = ProcessingSummary()
     
     # Convert VTT files to CMFT before manifest generation if configured
-    # Default to True if not specified for backward compatibility with new feature
-    if settings.get('convert_webvtt', True):
+    # Default to False if not specified to maintain backward compatibility
+    if settings.get('convert_webvtt', False):
         conversion_summary = convert_vtt_to_cmft(settings)
         overall_summary.conversion_summary = conversion_summary
     

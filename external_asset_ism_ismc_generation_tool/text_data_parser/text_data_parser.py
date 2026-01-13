@@ -1,18 +1,16 @@
-import io
 import re
 import webvtt
 import ttconv
 import ttconv.imsc.reader as imsc_reader
-import ttconv.imsc.writer as imsc_writer
-import ttconv.vtt.reader as vtt_reader
 from xml.etree import ElementTree as ET
 
-from typing import Tuple, Dict, List, Union, Optional
+from typing import Tuple, Union, Optional
 
 from external_asset_ism_ismc_generation_tool.common.logger.i_logger import ILogger
 from external_asset_ism_ismc_generation_tool.common.logger.logger import Logger
 from external_asset_ism_ismc_generation_tool.azure_client.azure_blob_service_client import AzureBlobServiceClient
 from external_asset_ism_ismc_generation_tool.text_data_parser.model.text_data_info import TextDataInfo
+from external_asset_ism_ismc_generation_tool.common.common import Common
 
 
 class TextDataParser:
@@ -35,7 +33,7 @@ class TextDataParser:
 
         start_time, duration = TextDataParser.__parse_text_data(blob_contents)
         bit_rate = TextDataParser.__calculate_bit_rate(len(blob_contents), duration)
-        language = TextDataParser.__extract_language_code(blob_name)
+        language = Common.extract_language_from_filename(blob_name)
 
         return TextDataInfo(blob_name, start_time, duration, bit_rate, language)
 

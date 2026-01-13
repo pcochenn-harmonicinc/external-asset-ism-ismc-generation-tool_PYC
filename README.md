@@ -82,7 +82,7 @@ Controls manifest file overwriting behavior:
 - **true**: Manifest files are regenerated even if they already exist in the container
 - **Note**: This option is automatically set to `true` when `convert_webvtt=true`
 
-### convert_webvtt (boolean, default: true)
+### convert_webvtt (boolean, default: false)
 Controls how WebVTT files are handled:
 - **false**: VTT files are added to manifests as raw WebVTT (FourCC="WVTT")
 - **true**: VTT files are converted to IMSC1, packaged as CMFT, and added to manifests as CMFT (FourCC="IMSC")
@@ -131,14 +131,10 @@ This process runs before the `generate_manifests()` call, so that created CMFT f
 When `convert_webvtt=true`, the application performs a 5-step operation:
 
 1. **Detection**: Identifies WebVTT files (.vtt) in the Azure Blob container
-2. **IMSC1 Conversion**: Converts WebVTT to IMSC1 format using the `ttconv` library with parameters:
-   - `time_format`: "clock_time"
-   - `fps`: None
-   - `xml:lang`: Extracted from VTT filename (e.g., "ara" for espn1_ARA.vtt)
+2. **IMSC1 Conversion**: Converts WebVTT to IMSC1 format using the `ttconv` library
 3. **Segmentation**: Segments the IMSC1 file using a fixed segment duration (4 seconds)
 4. **CMFT Packaging**: Packages segmented IMSC1 into an MP4/CMFT file using the `pymp4`library:
    - Structure: ftyp + moov (with mdhd language encoding) + moof/mdat pairs (one per segment)
-   - Language embedded in mdhd atom using 16-bit ISO 639-2/T encoding
 5. **Upload**: Uploads the generated CMFT file to the Azure Blob container
 
 ### Language Code Extraction
@@ -148,6 +144,7 @@ Language codes are extracted from filenames using pattern matching:
 - Searches all filename segments for 3-letter ISO 639-2/T codes
 - Position-independent: Works with `espn1_ARA.vtt`, `ARA_espn1.vtt`, or `espn1.ara.vtt`
 - For CMFT files already present: use track metadata language (from mdhd atom) if present, otherwise filename extraction
+- if no 3-letter code is found in the VTT file name, the language is set to 'und'
 
 ### Language Code Embedding
 
@@ -158,11 +155,11 @@ Language codes are embedded at three levels to ensure proper signalization:
 
 ### VTT File Handling Modes
 
-**Mode 1: convert_webvtt = false** (legacy mode)
+**Mode 1: convert_webvtt = false** (default)
 - VTT files are processed as-is and added to manifests
 - FourCC in manifest: "WVTT"
 
-**Mode 2: convert_webvtt = true** (default)
+**Mode 2: convert_webvtt = true**
 - VTT files are converted to CMFT during preprocessing
 - VTT files are excluded from manifest generation (handled by `blob_data_handler.py`)
 - Only generated CMFT files appear in manifests with FourCC "IMSC"

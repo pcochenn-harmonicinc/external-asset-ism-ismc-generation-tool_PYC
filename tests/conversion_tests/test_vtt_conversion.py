@@ -201,7 +201,6 @@ Top subtitle
 def test_imsc1_against_reference():
     """Compare generated IMSC1 structure with reference IMSC1 file if available."""
     # Generate IMSC1 from VTT
-    print("\nTEST PYC:")
     with open(Common.get_data_file_path('asset-test-vtt-syntax_ENG.vtt'), 'r', encoding='utf-8') as f:
         vtt_content = f.read()
     

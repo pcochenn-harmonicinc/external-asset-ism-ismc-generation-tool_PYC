@@ -249,7 +249,7 @@ class Imsc1Segmenter:
                     new_head.append(child)
         else:
             # Create empty head
-            new_head = ET.SubElement(new_root, '{http://www.w3.org/ns/ttml}head')
+            ET.SubElement(new_root, '{http://www.w3.org/ns/ttml}head')
         
         # Create body element
         body = root.find('.//tt:body', namespaces)

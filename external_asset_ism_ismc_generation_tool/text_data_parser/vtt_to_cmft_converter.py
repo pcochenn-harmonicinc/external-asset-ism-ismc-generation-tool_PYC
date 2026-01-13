@@ -23,34 +23,6 @@ class VttToCmftConverter:
         cls.__logger = logger
 
     @staticmethod
-    def __extract_language_from_filename(filename: str) -> str:
-        """
-        Extract 3-letter language code from filename.
-        Searches for any 3-letter code separated by underscores or other delimiters,
-        and validates it using pycountry to ensure it's a valid ISO 639-2/T language code.
-        This filters out file extensions like 'vtt' and other non-language codes.
-        
-        Args:
-            filename: VTT filename (e.g., 'espn1_ARA.vtt', 'asset-test-vtt-syntax_ENG.vtt')
-            
-        Returns:
-            ISO 639-2/T language code or 'und' if not found
-        """
-        # Remove extension
-        name_without_ext = filename.rsplit('.', 1)[0]
-        
-        # Split by underscores and other common delimiters
-        parts = re.split(r'[_\-\.]', name_without_ext)
-        
-        # Search through all parts for a valid language code
-        for part in parts:
-            validated_code = Common.validate_and_extract_language_code(part)
-            if validated_code:
-                return validated_code
-        
-        return 'und'
-
-    @staticmethod
     def convert_vtt_files_in_container(az_blob_service_client: AzureBlobServiceClient) -> ConversionSummary:
         """
         Find and convert all WebVTT files in the Azure container to CMFT format.
@@ -68,19 +40,16 @@ class VttToCmftConverter:
             blobs = az_blob_service_client.get_list_of_blobs()
             if not blobs:
                 VttToCmftConverter.__logger.warning("No blobs found in container")
-                return []
+                return ConversionSummary()
             
             # Find VTT files
             vtt_files = []
             
             for blob in blobs:
-                VttToCmftConverter.__logger.info(f"Processing blob: {blob.name}")
+                VttToCmftConverter.__logger.debug(f"Processing blob: {blob.name}")
                 key, format_ext = Common.get_key_and_format(blob.name)
-                VttToCmftConverter.__logger.info(f"Extracted key: {key}, format: {format_ext}")
-                format_lower = format_ext.lower()
-                
-                VttToCmftConverter.__logger.info(f"Blob: {blob.name}, format: {format_ext}")
-                
+                VttToCmftConverter.__logger.debug(f"Extracted key: {key}, format: {format_ext}")
+                format_lower = format_ext.lower()                
                 if format_lower == MediaFormat.VTT.value.lower():
                     vtt_files.append(blob.name)
             
@@ -149,7 +118,7 @@ class VttToCmftConverter:
             VttToCmftConverter.__logger.info(f"Downloaded VTT file: {len(vtt_content)} bytes")
             
             # Extract language code from filename
-            language_code = VttToCmftConverter.__extract_language_from_filename(vtt_filename)
+            language_code = Common.extract_language_from_filename(vtt_filename)
             VttToCmftConverter.__logger.info(f"Language code for IMSC1: {language_code}")
             
             # 2. Convert VTT to IMSC1

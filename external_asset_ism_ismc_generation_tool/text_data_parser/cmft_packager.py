@@ -10,10 +10,49 @@ class CmftPackager:
     """Packages segmented IMSC1 content into MP4/CMFT format."""
     
     __logger: ILogger = Logger("CmftPackager")
+    
+    # MP4 box type constants
+    BOX_FTYP = b'ftyp'
+    BOX_MOOV = b'moov'
+    BOX_MOOF = b'moof'
+    BOX_MDAT = b'mdat'
+    BOX_MFRA = b'mfra'
+    
+    # Brand constants
+    BRAND_ISO6 = b'iso6'
+    
+    # Default values
+    DEFAULT_TIMESCALE = 10000000  # 10MHz (Microsoft Smooth Streaming standard)
+    DEFAULT_LANGUAGE = 'und'  # Undetermined language
+    
+    # Fixed timestamps (epoch-based, common in MP4 files)
+    CREATION_TIME = 0xe0daa988
+    MODIFICATION_TIME = 0xe0daa988
+    
+    # MP4 structure constants
+    UNITY_RATE = 0x00010000  # 1.0 fixed-point
+    UNITY_VOLUME = 0x0100  # 1.0 fixed-point
+    UNITY_MATRIX = (0x00010000, 0, 0, 0, 0x00010000, 0, 0, 0, 0x40000000)  # Unity transformation matrix
+    
+    # Microsoft-specific UUID for fragment timing
+    MS_FRAGMENT_UUID = UUID('6d1d9b05-42d5-44e6-80e2-141daff757b2')
 
     @classmethod
     def redefine_logger(cls, logger: ILogger):
         cls.__logger = logger
+
+    @staticmethod
+    def __wrap_box(box_data: bytes) -> bytes:
+        """
+        Wrap box data with size prefix (MP4 box format).
+        
+        Args:
+            box_data: Complete box data including type and content
+            
+        Returns:
+            Box data with 4-byte size prefix
+        """
+        return struct.pack('>I', len(box_data) + 4) + box_data
 
     @staticmethod
     def package(segments: List[Tuple[float, str]], timescale: int = 10000000, total_duration: float = 0.0, language_code: str = 'und') -> bytes:
@@ -29,6 +68,19 @@ class CmftPackager:
         Returns:
             Bytes containing the complete CMFT file
         """
+        # Input validation
+        if not segments:
+            raise ValueError("Cannot package CMFT: segments list is empty")
+        
+        if timescale <= 0:
+            raise ValueError(f"Invalid timescale: {timescale}. Must be positive.")
+        
+        if total_duration < 0:
+            raise ValueError(f"Invalid total_duration: {total_duration}. Must be non-negative.")
+        
+        if not language_code or not isinstance(language_code, str):
+            language_code = CmftPackager.DEFAULT_LANGUAGE
+        
         CmftPackager.__logger.info(f"Packaging {len(segments)} segments into CMFT")
         
         try:
@@ -54,39 +106,43 @@ class CmftPackager:
             segment_times = []  # Track presentation time for each segment
             
             for idx, (start_time, imsc1_xml) in enumerate(segments):
-                sequence_number = idx + 1
-                
-                # Record the offset of this moof box
-                moof_offset = len(cmft_data)
-                moof_offsets.append(moof_offset)
-                
-                # Convert start time to timescale units
-                presentation_time = int(start_time * timescale)
-                segment_times.append(presentation_time)
-                
-                # Convert XML to bytes
-                xml_bytes = imsc1_xml.encode('utf-8')
-                
-                # Calculate duration in timescale units
-                if idx < len(segments) - 1:
-                    next_start, _ = segments[idx + 1]
-                    duration_seconds = next_start - start_time
-                else:
-                    duration_seconds = total_duration - start_time
-                
-                duration_timescale = int(duration_seconds * timescale)
-                
-                # Create moof box
-                moof_box = CmftPackager.__create_moof_box(
-                    sequence_number,
-                    duration_timescale,
-                    len(xml_bytes)
-                )
-                cmft_data.extend(moof_box)
-                
-                # Create mdat box
-                mdat_box = CmftPackager.__create_mdat_box(xml_bytes)
-                cmft_data.extend(mdat_box)
+                try:
+                    sequence_number = idx + 1
+                    
+                    # Record the offset of this moof box
+                    moof_offset = len(cmft_data)
+                    moof_offsets.append(moof_offset)
+                    
+                    # Convert start time to timescale units
+                    presentation_time = int(start_time * timescale)
+                    segment_times.append(presentation_time)
+                    
+                    # Convert XML to bytes
+                    xml_bytes = imsc1_xml.encode('utf-8')
+                    
+                    # Calculate duration in timescale units
+                    if idx < len(segments) - 1:
+                        next_start, _ = segments[idx + 1]
+                        duration_seconds = next_start - start_time
+                    else:
+                        duration_seconds = total_duration - start_time
+                    
+                    duration_timescale = int(duration_seconds * timescale)
+                    
+                    # Create moof box
+                    moof_box = CmftPackager.__create_moof_box(
+                        sequence_number,
+                        duration_timescale,
+                        len(xml_bytes)
+                    )
+                    cmft_data.extend(moof_box)
+                    
+                    # Create mdat box
+                    mdat_box = CmftPackager.__create_mdat_box(xml_bytes)
+                    cmft_data.extend(mdat_box)
+                    
+                except Exception as e:
+                    raise ValueError(f"Failed to process segment {idx + 1}/{len(segments)} at time {start_time:.2f}s: {e}") from e
             
             # 4. Create mfra box with random access information
             mfra_box = CmftPackager.__create_mfra_box(moof_offsets, segment_times)
@@ -121,44 +177,39 @@ class CmftPackager:
     def __create_ftyp_box() -> bytes:
         """Create the ftyp (file type) box."""
         # ftyp box: major brand = iso6, minor version = 1, compatible brands = iso6
-        major_brand = b'iso6'
         minor_version = 1
-        compatible_brands = [b'iso6']
         
-        box_data = b'ftyp' + major_brand + struct.pack('>I', minor_version)
-        for brand in compatible_brands:
-            box_data += brand
+        box_data = CmftPackager.BOX_FTYP
+        box_data += CmftPackager.BRAND_ISO6  # major_brand
+        box_data += struct.pack('>I', minor_version)
+        box_data += CmftPackager.BRAND_ISO6  # compatible_brand
         
-        # Add size at the beginning
-        box_size = len(box_data) + 4
-        return struct.pack('>I', box_size) + box_data
+        return CmftPackager.__wrap_box(box_data)
 
     @staticmethod
     def __create_moov_box(timescale: int, duration: float, language_code: str = 'und') -> bytes:
         """Create the moov (movie) box with subtitle track definition."""
         # Convert duration to timescale units
         duration_timescale = int(duration * timescale)
-        creation_time = 0xe0daa988  # Fixed value from reference
-        modification_time = 0xe0daa988
         
         # Build mvhd box
         mvhd_data = b'mvhd'
         mvhd_data += struct.pack('>B', 1)  # version 1
         mvhd_data += struct.pack('>I', 0)[1:]  # flags (3 bytes)
-        mvhd_data += struct.pack('>Q', creation_time)  # creation_time
-        mvhd_data += struct.pack('>Q', modification_time)  # modification_time
-        mvhd_data += struct.pack('>I', timescale)  # timescale
-        mvhd_data += struct.pack('>Q', duration_timescale)  # duration
-        mvhd_data += struct.pack('>I', 0x00010000)  # rate = 1.0
-        mvhd_data += struct.pack('>H', 0x0100)  # volume = 1.0
+        mvhd_data += struct.pack('>Q', CmftPackager.CREATION_TIME)
+        mvhd_data += struct.pack('>Q', CmftPackager.MODIFICATION_TIME)
+        mvhd_data += struct.pack('>I', timescale)
+        mvhd_data += struct.pack('>Q', duration_timescale)
+        mvhd_data += struct.pack('>I', CmftPackager.UNITY_RATE)  # rate = 1.0
+        mvhd_data += struct.pack('>H', CmftPackager.UNITY_VOLUME)  # volume = 1.0
         mvhd_data += b'\x00' * 10  # reserved
         # Unity matrix
-        for val in [0x00010000, 0, 0, 0, 0x00010000, 0, 0, 0, 0x40000000]:
+        for val in CmftPackager.UNITY_MATRIX:
             mvhd_data += struct.pack('>I', val)
         mvhd_data += b'\x00' * 24  # pre_defined
         mvhd_data += struct.pack('>I', 2)  # next_track_ID
         
-        mvhd_box = struct.pack('>I', len(mvhd_data) + 4) + mvhd_data
+        mvhd_box = CmftPackager.__wrap_box(mvhd_data)
         
         # Build mvex box (movie extends)
         # trex (track extends) box
@@ -171,65 +222,65 @@ class CmftPackager:
         trex_data += struct.pack('>I', 0)  # default_sample_size
         trex_data += struct.pack('>I', 0)  # default_sample_flags
         
-        trex_box = struct.pack('>I', len(trex_data) + 4) + trex_data
+        trex_box = CmftPackager.__wrap_box(trex_data)
         
         mvex_data = b'mvex' + trex_box
-        mvex_box = struct.pack('>I', len(mvex_data) + 4) + mvex_data
+        mvex_box = CmftPackager.__wrap_box(mvex_data)
         
         # Build trak box (track)
-        trak_box = CmftPackager.__create_trak_box(timescale, duration_timescale, creation_time, modification_time, language_code)
+        trak_box = CmftPackager.__create_trak_box(timescale, duration_timescale, language_code)
         
         # Combine into moov box
-        moov_data = b'moov' + mvhd_box + mvex_box + trak_box
-        return struct.pack('>I', len(moov_data) + 4) + moov_data
+        moov_data = CmftPackager.BOX_MOOV + mvhd_box + mvex_box + trak_box
+        return CmftPackager.__wrap_box(moov_data)
 
     @staticmethod
-    def __create_trak_box(timescale: int, duration: int, creation_time: int, modification_time: int, language_code: str = 'und') -> bytes:
+    def __create_trak_box(timescale: int, duration: int, language_code: str = 'und') -> bytes:
         """Create the trak (track) box for subtitle track."""
         # tkhd (track header) box
         tkhd_data = b'tkhd'
         tkhd_data += struct.pack('>B', 1)  # version 1
         tkhd_data += struct.pack('>I', 0x000003)[1:]  # flags: track enabled (3 bytes)
-        tkhd_data += struct.pack('>Q', creation_time)
-        tkhd_data += struct.pack('>Q', modification_time)
+        tkhd_data += struct.pack('>Q', CmftPackager.CREATION_TIME)
+        tkhd_data += struct.pack('>Q', CmftPackager.MODIFICATION_TIME)
         tkhd_data += struct.pack('>I', 1)  # track_ID
         tkhd_data += struct.pack('>I', 0)  # reserved
         tkhd_data += struct.pack('>Q', duration)
         tkhd_data += b'\x00' * 8  # reserved
         tkhd_data += struct.pack('>H', 0)  # layer
         tkhd_data += struct.pack('>H', 0)  # alternate_group
-        tkhd_data += struct.pack('>H', 0)  # volume
+        tkhd_data += struct.pack('>H', 0)  # volume (0 for non-audio tracks)
         tkhd_data += struct.pack('>H', 0)  # reserved
         # Unity matrix
-        for val in [0x00010000, 0, 0, 0, 0x00010000, 0, 0, 0, 0x40000000]:
+        for val in CmftPackager.UNITY_MATRIX:
             tkhd_data += struct.pack('>I', val)
         tkhd_data += struct.pack('>I', 0)  # width
         tkhd_data += struct.pack('>I', 0)  # height
         
-        tkhd_box = struct.pack('>I', len(tkhd_data) + 4) + tkhd_data
+        tkhd_box = CmftPackager.__wrap_box(tkhd_data)
         
         # mdia (media) box
-        mdia_box = CmftPackager.__create_mdia_box(timescale, duration, creation_time, modification_time, language_code)
+        mdia_box = CmftPackager.__create_mdia_box(timescale, duration, language_code)
         
         # Combine into trak box
         trak_data = b'trak' + tkhd_box + mdia_box
-        return struct.pack('>I', len(trak_data) + 4) + trak_data
+        return CmftPackager.__wrap_box(trak_data)
 
     @staticmethod
-    def __create_mdia_box(timescale: int, duration: int, creation_time: int, modification_time: int, language_code: str = 'und') -> bytes:
+    def __create_mdia_box(timescale: int, duration: int, language_code: str = 'und') -> bytes:
         """Create the mdia (media) box."""
         # mdhd (media header) box
         mdhd_data = b'mdhd'
         mdhd_data += struct.pack('>B', 1)  # version 1
         mdhd_data += struct.pack('>I', 0)[1:]  # flags (3 bytes)
-        mdhd_data += struct.pack('>Q', creation_time)
-        mdhd_data += struct.pack('>Q', modification_time)
+        mdhd_data += struct.pack('>Q', CmftPackager.CREATION_TIME)
+        mdhd_data += struct.pack('>Q', CmftPackager.MODIFICATION_TIME)
         mdhd_data += struct.pack('>I', timescale)
         mdhd_data += struct.pack('>Q', duration)
         mdhd_data += struct.pack('>H', CmftPackager.__encode_language(language_code))  # language
         mdhd_data += struct.pack('>H', 0)  # pre_defined
         
-        mdhd_box = struct.pack('>I', len(mdhd_data) + 4) + mdhd_data
+        mdhd_box = CmftPackager.__wrap_box(mdhd_data)
         
         # hdlr (handler) box
         hdlr_data = b'hdlr'
@@ -239,14 +290,14 @@ class CmftPackager:
         hdlr_data += b'\x00' * 12  # reserved
         hdlr_data += b'subt\x00'  # name
         
-        hdlr_box = struct.pack('>I', len(hdlr_data) + 4) + hdlr_data
+        hdlr_box = CmftPackager.__wrap_box(hdlr_data)
         
         # minf (media information) box
         minf_box = CmftPackager.__create_minf_box()
         
         # Combine into mdia box
         mdia_data = b'mdia' + mdhd_box + hdlr_box + minf_box
-        return struct.pack('>I', len(mdia_data) + 4) + mdia_data
+        return CmftPackager.__wrap_box(mdia_data)
 
     @staticmethod
     def __create_minf_box() -> bytes:
@@ -255,7 +306,7 @@ class CmftPackager:
         sthd_data = b'sthd'
         sthd_data += struct.pack('>I', 0)  # version + flags
         
-        sthd_box = struct.pack('>I', len(sthd_data) + 4) + sthd_data
+        sthd_box = CmftPackager.__wrap_box(sthd_data)
         
         # dinf (data information) box
         dref_data = b'dref'
@@ -264,19 +315,19 @@ class CmftPackager:
         # url box
         url_data = b'url '
         url_data += struct.pack('>I', 1)  # version + flags (self-contained)
-        url_box = struct.pack('>I', len(url_data) + 4) + url_data
+        url_box = CmftPackager.__wrap_box(url_data)
         dref_data += url_box
         
-        dref_box = struct.pack('>I', len(dref_data) + 4) + dref_data
+        dref_box = CmftPackager.__wrap_box(dref_data)
         dinf_data = b'dinf' + dref_box
-        dinf_box = struct.pack('>I', len(dinf_data) + 4) + dinf_data
+        dinf_box = CmftPackager.__wrap_box(dinf_data)
         
         # stbl (sample table) box
         stbl_box = CmftPackager.__create_stbl_box()
         
         # Combine into minf box
         minf_data = b'minf' + sthd_box + dinf_box + stbl_box
-        return struct.pack('>I', len(minf_data) + 4) + minf_data
+        return CmftPackager.__wrap_box(minf_data)
 
     @staticmethod
     def __create_stbl_box() -> bytes:
@@ -296,13 +347,13 @@ class CmftPackager:
         mime_data = b'mime'
         mime_data += struct.pack('>I', 0)  # version + flags
         mime_data += b'application/ttml+xml;codecs=im1t\x00'
-        mime_box = struct.pack('>I', len(mime_data) + 4) + mime_data
+        mime_box = CmftPackager.__wrap_box(mime_data)
         stpp_data += mime_box
         
-        stpp_box = struct.pack('>I', len(stpp_data) + 4) + stpp_data
+        stpp_box = CmftPackager.__wrap_box(stpp_data)
         stsd_data += stpp_box
         
-        stsd_box = struct.pack('>I', len(stsd_data) + 4) + stsd_data
+        stsd_box = CmftPackager.__wrap_box(stsd_data)
         
         # Empty boxes
         stts_box = struct.pack('>I', 16) + b'stts' + struct.pack('>I', 0) + struct.pack('>I', 0)
@@ -312,7 +363,7 @@ class CmftPackager:
         
         # Combine into stbl box
         stbl_data = b'stbl' + stsd_box + stts_box + stsc_box + stsz_box + stco_box
-        return struct.pack('>I', len(stbl_data) + 4) + stbl_data
+        return CmftPackager.__wrap_box(stbl_data)
 
     @staticmethod
     def __create_moof_box(sequence_number: int, duration: int, sample_size: int) -> bytes:
@@ -322,7 +373,7 @@ class CmftPackager:
         mfhd_data += struct.pack('>I', 0)  # version + flags
         mfhd_data += struct.pack('>I', sequence_number)
         
-        mfhd_box = struct.pack('>I', len(mfhd_data) + 4) + mfhd_data
+        mfhd_box = CmftPackager.__wrap_box(mfhd_data)
         
         # traf (track fragment) box
         # tfhd (track fragment header) box
@@ -331,17 +382,30 @@ class CmftPackager:
         tfhd_data += struct.pack('>I', 0)[1:]  # flags (3 bytes)
         tfhd_data += struct.pack('>I', 1)  # track_ID
         
-        tfhd_box = struct.pack('>I', len(tfhd_data) + 4) + tfhd_data
+        tfhd_box = CmftPackager.__wrap_box(tfhd_data)
         
         # uuid box (Microsoft-specific timing info)
-        uuid_bytes = UUID('6d1d9b05-42d5-44e6-80e2-141daff757b2').bytes
-        uuid_data = b'uuid' + uuid_bytes
+        uuid_data = b'uuid' + CmftPackager.MS_FRAGMENT_UUID.bytes
         uuid_data += struct.pack('>B', 1)  # version
         uuid_data += struct.pack('>I', 0)[1:]  # flags (3 bytes)
         uuid_data += struct.pack('>Q', 0)  # track_ID
         uuid_data += struct.pack('>Q', duration)  # fragment_duration
         
-        uuid_box = struct.pack('>I', len(uuid_data) + 4) + uuid_data
+        uuid_box = CmftPackager.__wrap_box(uuid_data)
+        
+        # Build trun box (need to calculate moof size first for data_offset)
+        # trun size: 4 (size) + 4 (type) + 1 (version) + 3 (flags) + 4 (sample_count) 
+        #          + 4 (data_offset) + 4 (sample_duration) + 4 (sample_size) = 28 bytes
+        trun_size = 28
+        
+        # Calculate moof box size:
+        # moof: 8 (header) + mfhd_box + traf_box
+        # traf: 8 (header) + tfhd_box + uuid_box + trun_size
+        moof_size = 8 + len(mfhd_box) + 8 + len(tfhd_box) + len(uuid_box) + trun_size
+        
+        # data_offset is relative to start of moof, points to data in mdat
+        # mdat header is 8 bytes, so offset = moof_size + 8
+        data_offset = moof_size + 8
         
         # trun (track run) box
         trun_data = b'trun'
@@ -349,53 +413,59 @@ class CmftPackager:
         # flags: data_offset_present (0x000001) + sample_duration_present (0x000100) + sample_size_present (0x000200)
         trun_data += struct.pack('>I', 0x000301)[1:]  # flags (3 bytes)
         trun_data += struct.pack('>I', 1)  # sample_count
-        # Calculate data_offset: moof size + mdat header (8 bytes)
-        moof_size_estimate = 120  # Approximate size
-        data_offset = moof_size_estimate + 8
         trun_data += struct.pack('>I', data_offset)  # data_offset
         trun_data += struct.pack('>I', duration)  # sample_duration
         trun_data += struct.pack('>I', sample_size)  # sample_size
         
-        trun_box = struct.pack('>I', len(trun_data) + 4) + trun_data
+        trun_box = CmftPackager.__wrap_box(trun_data)
         
         # Combine into traf box
         traf_data = b'traf' + tfhd_box + uuid_box + trun_box
-        traf_box = struct.pack('>I', len(traf_data) + 4) + traf_data
+        traf_box = CmftPackager.__wrap_box(traf_data)
         
         # Combine into moof box
         moof_data = b'moof' + mfhd_box + traf_box
-        return struct.pack('>I', len(moof_data) + 4) + moof_data
+        return CmftPackager.__wrap_box(moof_data)
 
     @staticmethod
     def __create_mdat_box(data: bytes) -> bytes:
         """Create an mdat (media data) box."""
         mdat_data = b'mdat' + data
-        return struct.pack('>I', len(mdat_data) + 4) + mdat_data
+        return CmftPackager.__wrap_box(mdat_data)
 
     @staticmethod
     def __encode_language(language_code: str) -> int:
         """
-        Encode ISO 639-2/T language code to MP4 format.
-        Each character is stored as 5 bits, with 'a' = 1, 'b' = 2, ..., 'z' = 26.
+        Encode ISO 639-2/T language code to MP4 16-bit format (ISO/IEC 14496-12).
+        
+        Each character is stored as 5 bits, with 'a' = 1, 'b' = 2, ..., 'z' = 26, and 0 = padding/invalid.
+        The encoding uses bits [15:11] for char 1, [10:6] for char 2, and [5:1] for char 3.
+        Bit 0 is always 0.
+        
+        Example: 'eng' -> e=5, n=14, g=7 -> (5<<10) | (14<<5) | (7<<0) = 0x15c7
         
         Args:
             language_code: 3-letter ISO 639-2/T code (e.g., 'eng', 'ara', 'fre')
             
         Returns:
-            16-bit integer representation
+            16-bit integer representation suitable for MP4 mdhd atom
         """
-        if len(language_code) != 3:
-            language_code = 'und'
+        # Validate and normalize
+        if not language_code or len(language_code) != 3:
+            CmftPackager.__logger.warning(f"Invalid language code '{language_code}', using 'und'")
+            language_code = CmftPackager.DEFAULT_LANGUAGE
         
         language_code = language_code.lower()
         
-        # Encode each character as 5 bits: a=1, b=2, ..., z=26
+        # Encode each character as 5 bits: a=1, b=2, ..., z=26, other=0
         encoded = 0
         for i, char in enumerate(language_code):
             if 'a' <= char <= 'z':
                 value = ord(char) - ord('a') + 1
             else:
-                value = 0  # Invalid character
+                CmftPackager.__logger.warning(f"Invalid character '{char}' in language code, using 0")
+                value = 0
+            # Shift: char 0 -> bits [15:11], char 1 -> bits [10:6], char 2 -> bits [5:1]
             encoded |= (value << (10 - i * 5))
         
         return encoded
@@ -426,7 +496,7 @@ class CmftPackager:
         
         # Assemble mfra box
         mfra_data = b'mfra' + tfra_box + mfro_box
-        return struct.pack('>I', len(mfra_data) + 4) + mfra_data
+        return CmftPackager.__wrap_box(mfra_data)
 
     @staticmethod
     def __create_tfra_box(moof_offsets: List[int], segment_times: List[int]) -> bytes:
@@ -481,8 +551,7 @@ class CmftPackager:
             # Since we have one sample per trun starting at 1, delta = 1 + 1 - 1 = 1
             tfra_data += struct.pack('>B', 1)
         
-        # Return with size prefix
-        return struct.pack('>I', len(tfra_data) + 4) + tfra_data
+        return CmftPackager.__wrap_box(tfra_data)
 
     @staticmethod
     def __create_mfro_box(parent_size: int) -> bytes:
@@ -503,5 +572,4 @@ class CmftPackager:
         # parent_size (32-bit unsigned int)
         mfro_data += struct.pack('>I', parent_size)
         
-        # Return with size prefix
-        return struct.pack('>I', len(mfro_data) + 4) + mfro_data
+        return CmftPackager.__wrap_box(mfro_data)

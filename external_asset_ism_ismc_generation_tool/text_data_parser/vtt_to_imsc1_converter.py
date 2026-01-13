@@ -30,7 +30,6 @@ class VttToImsc1Converter:
             Tuple of (sanitized text, list of issues found)
         """
         issues = []
-        original_text = text
         
         # Valid VTT tags: b, i, u, ruby, rt, v, c, lang
         valid_tags = r'(?:b|i|u|ruby|rt|v|c|lang)'
@@ -168,6 +167,13 @@ class VttToImsc1Converter:
                 VttToImsc1Converter.__logger.error("Consider enabling HTML sanitization (sanitize_html=True) to handle malformed tags")
             raise ValueError(f"Failed to convert WebVTT to IMSC1: {error_msg}")
             
+        except UnicodeDecodeError as e:
+            # Character encoding issues
+            error_msg = f"VTT file encoding error: {e}"
+            VttToImsc1Converter.__logger.error(error_msg)
+            VttToImsc1Converter.__logger.error("Ensure the VTT file is UTF-8 encoded")
+            raise ValueError(f"Failed to convert WebVTT to IMSC1: {error_msg}")
+            
         except ValueError as e:
             # Re-raise ValueError (including our own validation errors)
             if "Failed to convert WebVTT to IMSC1" in str(e):
@@ -175,13 +181,6 @@ class VttToImsc1Converter:
             error_msg = f"VTT validation error - invalid timing or format: {e}"
             VttToImsc1Converter.__logger.error(error_msg)
             VttToImsc1Converter.__logger.error("Check that all timestamps follow HH:MM:SS.mmm format with proper '-->' separator")
-            raise ValueError(f"Failed to convert WebVTT to IMSC1: {error_msg}")
-            
-        except UnicodeDecodeError as e:
-            # Character encoding issues
-            error_msg = f"VTT file encoding error: {e}"
-            VttToImsc1Converter.__logger.error(error_msg)
-            VttToImsc1Converter.__logger.error("Ensure the VTT file is UTF-8 encoded")
             raise ValueError(f"Failed to convert WebVTT to IMSC1: {error_msg}")
             
         except Exception as e:

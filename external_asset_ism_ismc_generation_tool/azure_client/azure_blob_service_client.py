@@ -1,5 +1,4 @@
 import io
-import logging
 
 from azure.storage.blob import BlobServiceClient, BlobClient
 from external_asset_ism_ismc_generation_tool.common.logger.i_logger import ILogger
@@ -14,15 +13,13 @@ class AzureBlobServiceClient:
         cls.__logger = logger
 
     def __init__(self, settings: dict):
-        # Set the logging level of Azure SDK to WARNING to reduce verbosity
-        logger = logging.getLogger('azure.core.pipeline.policies.http_logging_policy')
-        logger.setLevel(logging.WARNING)
 
-        if 'container_name' in settings:
-            self.container_name = settings['container_name']
-        else:
-            self.__logger.error(f'Azure Container name is not defined in settings: {settings}')
-            raise ValueError("Azure container name is not defined")
+        try:
+            self.container_name = settings["container_name"]
+        except KeyError as exc:
+            missing_key = exc.args[0] if exc.args else "unknown"
+            self.__logger.error(f"Required setting '{missing_key}' is missing.")
+            raise ValueError(f"Missing required setting: {missing_key}") from exc
 
         self.connection_string = self.__get_connection_string(settings)
 

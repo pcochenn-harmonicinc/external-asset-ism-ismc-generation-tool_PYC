@@ -1,14 +1,8 @@
 from external_asset_ism_ismc_generation_tool.common.common import Common
 from external_asset_ism_ismc_generation_tool.common.logger.logger import Logger
-from external_asset_ism_ismc_generation_tool.media_data_parser.media_data_parser import MediaDataParser
-from external_asset_ism_ismc_generation_tool.media_data_parser.model.media_data import MediaData
-from external_asset_ism_ismc_generation_tool.blob_data_handler.blob_data_handler import BlobDataHandler
-from external_asset_ism_ismc_generation_tool.mss_client_manifest.ismc_generator import IsmcGenerator
-from external_asset_ism_ismc_generation_tool.mss_server_manifest.ism_generator import IsmGenerator
 from external_asset_ism_ismc_generation_tool.settings_parser.cli_arguments_parser import CliArgumentsParser
 from external_asset_ism_ismc_generation_tool.settings_parser.config_file_parser import ConfigFileParser
 from external_asset_ism_ismc_generation_tool.azure_client.azure_blob_service_client import AzureBlobServiceClient
-from external_asset_ism_ismc_generation_tool.blob_data_handler.model.blob_media_data import BlobMediaData
 
 def remove_azure_asset(settings: dict):
     logger: Logger = Logger("main")
@@ -16,10 +10,12 @@ def remove_azure_asset(settings: dict):
     az_blob_service_client: AzureBlobServiceClient = AzureBlobServiceClient(settings)
 
     # Cleanup: Delete the containers and their contents after the test
-    container_name = settings.get('container_name')
-    if not container_name:
-        logger.error("Required setting 'container_name' is missing or empty.")
-        raise KeyError("Required setting 'container_name' is missing or empty.")
+    try:
+        container_name = settings["container_name"]
+    except KeyError as exc:
+        missing_key = exc.args[0] if exc.args else "unknown"
+        logger.error(f"Required setting '{missing_key}' is missing.")
+        raise ValueError(f"Missing required setting: {missing_key}") from exc
 
     container_client = az_blob_service_client.blob_service_client.get_container_client(container_name)
     try:
