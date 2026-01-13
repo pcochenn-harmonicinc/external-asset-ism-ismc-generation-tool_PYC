@@ -221,8 +221,6 @@ class Imsc1Segmenter:
             if region:
                 used_regions.add(region)
         
-        Imsc1Segmenter.__logger.info(f"Segment uses regions: {used_regions}")
-        
         # Copy head element with filtered regions
         head = root.find('.//tt:head', namespaces)
         if head is None:
@@ -240,7 +238,6 @@ class Imsc1Segmenter:
                             region_id = region.get('{http://www.w3.org/XML/1998/namespace}id')
                             if region_id in used_regions:
                                 new_layout.append(region)
-                                Imsc1Segmenter.__logger.info(f"Including region '{region_id}' in segment")
                         else:
                             # Not a region element, copy as-is
                             new_layout.append(region)

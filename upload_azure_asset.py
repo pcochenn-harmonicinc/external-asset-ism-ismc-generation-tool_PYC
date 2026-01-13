@@ -14,7 +14,7 @@ ALLOWED_EXTENSIONS = {
     # Subtitle files
     '.vtt', '.ttml', '.cmft',
     # Manifest files
-    '.ism', '.ismc'   
+    '.ism', '.ismc'
 }
 
 # Maximum file size in bytes (default: 1GB)

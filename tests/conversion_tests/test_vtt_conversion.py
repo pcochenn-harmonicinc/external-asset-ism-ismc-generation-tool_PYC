@@ -121,15 +121,6 @@ Cue 3, another bad time format
     imsc1_content, warnings = VttToImsc1Converter.convert(vtt_with_bad_times)
     root = ET.fromstring(imsc1_content)
     paragraphs = root.findall('.//{http://www.w3.org/ns/ttml}p')
-    
-    # Save the result
-    output_file = 'espn1_generated.imsc1'
-    try:
-        with open(output_file, 'wb') as f:
-            f.write(imsc1_content.encode('utf-8'))
-    finally:
-        if os.path.exists(output_file):
-            os.remove(output_file)
 
     # ttconv should skip the 2 malformed timing cues and convert the 2 valid ones
     assert len(paragraphs) == 2, f"Should convert 2 valid cues (timing errors skipped), got {len(paragraphs)}"
@@ -383,12 +374,7 @@ def test_cmft_packaging():
     assert b'moof' in cmft_data
     assert b'mdat' in cmft_data
     
-    # Save generated CMFT for inspection
-    with open('espn1_generated.cmft', 'wb') as f:
-        f.write(cmft_data)
-    
     print(f"✓ CMFT packaging successful: {len(cmft_data)} bytes")
-    print(f"  Generated file saved as espn1_generated.cmft")
 
 
 def test_full_vtt_to_cmft_conversion():
@@ -419,14 +405,8 @@ def test_full_vtt_to_cmft_conversion():
     cmft_data = CmftPackager.package(segments, timescale=10000000, total_duration=total_duration)
     assert len(cmft_data) > 0
     
-    # Save the result
-    output_file = 'espn1_generated.cmft'
-    with open(output_file, 'wb') as f:
-        f.write(cmft_data)
-    
     print(f"✓ Full VTT to CMFT conversion successful")
     print(f"  Input: asset-test-vtt-syntax_ENG.vtt")
-    print(f"  Output: {output_file} ({len(cmft_data)} bytes)")
     print(f"  Segments: {len(segments)}")
     print(f"  Duration: {total_duration:.2f}s")
     
@@ -523,14 +503,8 @@ def test_bad_vtt_to_cmft_conversion():
     cmft_data = CmftPackager.package(segments, timescale=10000000, total_duration=total_duration)
     assert len(cmft_data) > 0
     
-    # Save the result
-    output_file = 'espn1_generated_BAD.cmft'
-    with open(output_file, 'wb') as f:
-        f.write(cmft_data)
-    
     print(f"✓ Bad VTT to CMFT conversion successful")
     print(f"  Input: asset-test-vtt-syntax_BAD.vtt")
-    print(f"  Output: {output_file} ({len(cmft_data)} bytes)")
     print(f"  Segments: {len(segments)}")
     print(f"  Duration: {total_duration:.2f}s")
     

@@ -1,4 +1,4 @@
-from typing import Tuple, Optional
+from typing import Tuple
 
 from tools.pymp4.src.pymp4.parser import Box
 
