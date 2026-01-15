@@ -1,0 +1,112 @@
+﻿WEBVTT
+
+STYLE
+
+1
+00:00:01.320 --> 00:00:03.520 align:center line:-1
+Cue 1 on one line
+
+2
+00:00:03.680 --> 00:00:05.120 align:center line:-2
+Cue 2 on two lines
+Aligned to the bottom
+
+3
+00:00:05.280 --> 00:00:06.880 align:start position:0% line:0
+Cue 3 position:0%
+on line 0
+
+4
+00:00:07.040 --> 00:00:09.480 align:start position:10% line:1
+Cue 4 position:10%
+on line 1
+
+5
+00:00:09.640 --> 00:00:12.400 align:start position:20% line:2
+Cue 5 position:20%
+on line 2
+
+6
+00:00:12.560 --> 00:00:14.680 align:start position:30% line:3
+Cue 6 position:30%
+on line 3
+
+7
+00:00:14.840 --> 00:00:16.640 align:start position:40% line:4
+Cue 7 position:40%
+on line 4
+
+8
+00:00:16.800 --> 00:00:17.880 align:start position:50% line:5
+Cue 8 position:50%
+on line 5
+
+9
+00:00:18.040 --> 00:00:20.360 align:start position:60% line:6
+Cue 9 position:60%
+on line 6
+
+10
+00:00:20.520 --> 00:00:22.640 align:start position:70% line:7
+Cue 10 position:70%
+on line 7
+
+11
+00:00:22.800 --> 00:00:25.960 align:start position:80% line:8
+Cue 11 position:80%
+on line 8
+
+12
+00:00:26.840 --> 00:00:29.960 align:start position:90% line:9
+Cue 12 position:90%
+on line 9
+
+13
+00:00:30.120 --> 00:00:32.440
+<b>Cue 13 (bold)</b>
+<i>on default position (italics)</i>
+
+14
+00:00:34.040 --> 00:00:37.760 align:center line:15
+Cue 14 centered
+on line 15
+
+15
+00:00:37.920 --> 00:00:39.880 align:right line:20
+Cue 15 right-aligned
+on line 20
+
+16
+00:00:40.040 --> 00:00:42.320 align:center line:0%
+Cue 16 (default color)
+on line 0%
+
+17
+00:00:42.480 --> 00:00:44.480 align:center line:20%
+<c.red>Cue 17 (red)</c>
+on line 20%
+
+18
+00:00:44.640 --> 00:00:46.160 align:center line:40%
+<c.yellow>Cue 18 (yellow)</c>
+on line 40%
+
+19
+00:00:46.320 --> 00:00:50.040 align:center line:60%
+<c.lime>Cue 19 (lime)</c>
+on line 60%
+
+20
+00:00:50.200 --> 00:00:51.760 align:center line:70%
+<c.blue>Cue 20 (blue)</c>
+on line 70%
+
+21
+00:00:51.920 --> 00:00:55.560 align:center line:80%
+<c.fuchsia>Cue 21 (fuchsia)</c>
+on line 80%
+
+22
+00:00:56.880 --> 00:00:59.960 align:center line:90%
+<c.aqua>Cue 22 (aqua)</c>
+on line 90%

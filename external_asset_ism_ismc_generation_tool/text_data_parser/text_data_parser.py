@@ -1,14 +1,16 @@
+import re
 import webvtt
 import ttconv
 import ttconv.imsc.reader as imsc_reader
 from xml.etree import ElementTree as ET
 
-from typing import Tuple, Dict, List, Union
+from typing import Tuple, Union, Optional
 
 from external_asset_ism_ismc_generation_tool.common.logger.i_logger import ILogger
 from external_asset_ism_ismc_generation_tool.common.logger.logger import Logger
 from external_asset_ism_ismc_generation_tool.azure_client.azure_blob_service_client import AzureBlobServiceClient
 from external_asset_ism_ismc_generation_tool.text_data_parser.model.text_data_info import TextDataInfo
+from external_asset_ism_ismc_generation_tool.common.common import Common
 
 
 class TextDataParser:
@@ -20,19 +22,25 @@ class TextDataParser:
         cls.__logger = logger
 
     @staticmethod
-    def get_text_data_info(blob_name: str, az_blob_service_client: AzureBlobServiceClient) -> TextDataInfo:
+    def get_text_data_info(blob_name: str, az_blob_service_client: AzureBlobServiceClient) -> Optional[TextDataInfo]:
         TextDataParser.__logger.info(f"Found a subtitle file {blob_name}")
 
-        blob_contents = az_blob_service_client.download_part_of_blob(blob_name=blob_name)
-        blob_contents = blob_contents.decode("utf-8")
+        try:
+            blob_contents = az_blob_service_client.download_part_of_blob(blob_name=blob_name)
+            blob_contents = blob_contents.decode("utf-8")
 
-        if blob_contents.startswith('\ufeff'):
-            blob_contents = blob_contents[1:]
+            if blob_contents.startswith('\ufeff'):
+                blob_contents = blob_contents[1:]
 
-        start_time, duration = TextDataParser.__parse_text_data(blob_contents)
-        bit_rate = TextDataParser.__calculate_bit_rate(len(blob_contents), duration)
+            start_time, duration = TextDataParser.__parse_text_data(blob_contents)
+            bit_rate = TextDataParser.__calculate_bit_rate(len(blob_contents), duration)
+            language = Common.extract_language_from_filename(blob_name)
 
-        return TextDataInfo(blob_name, start_time, duration, bit_rate)
+            return TextDataInfo(blob_name, start_time, duration, bit_rate, language)
+        except Exception as e:
+            TextDataParser.__logger.error(f"Failed to process subtitle file {blob_name}: {e}")
+            TextDataParser.__logger.warning(f"Skipping {blob_name} and continuing with other files")
+            return None
 
     @staticmethod
     def __parse_text_data(contents: str) -> Tuple[float, float]:
@@ -46,9 +54,17 @@ class TextDataParser:
     @staticmethod
     def __parse_text_file(sub_file: str) -> Union[webvtt.WebVTT, ttconv.model.ContentDocument]:
         if sub_file.startswith("WEBVTT"):
-            return webvtt.from_string(sub_file)
+            try:
+                return webvtt.from_string(sub_file)
+            except Exception as e:
+                TextDataParser.__logger.error(f"Failed to parse WebVTT content: {e}")
+                raise ValueError(f"WebVTT parsing error: {e}") from e
         elif sub_file.startswith("<?xml version=\""):
-            return imsc_reader.to_model(ET.ElementTree(ET.fromstring(sub_file)))
+            try:
+                return imsc_reader.to_model(ET.ElementTree(ET.fromstring(sub_file)))
+            except Exception as e:
+                TextDataParser.__logger.error(f"Failed to parse TTML/IMSC1 content: {e}")
+                raise ValueError(f"TTML parsing error: {e}") from e
         else:
             TextDataParser.__logger.error(f"No valid WebVTT or TTML indication found in the file.")
             raise ValueError(f"No valid WebVTT or TTML indication found: {sub_file}")

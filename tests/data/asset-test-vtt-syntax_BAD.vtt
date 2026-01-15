@@ -1,0 +1,29 @@
+﻿WEBVTT
+
+STYLE
+
+1
+00:00:01.000 --> 00:00:03.00
+Cue 1 with bad time format
+
+2
+00:00:04.000 --> 00:00:06.000
+Cue 2 is correct!
+
+3
+00:00:07.000 --> 00:00:09,000
+Cue 3, another bad time format
+
+4
+00:00:10.000 --> 00:00:12.000
+Cue 4 is correct!
+
+5
+00:00:13.000 --> 00:00:15.000
+Cue 5 with </bad> HTML
+
+6
+00:00:16.000 --> 00:00:18.000
+Cue 6 looks good!
+
+

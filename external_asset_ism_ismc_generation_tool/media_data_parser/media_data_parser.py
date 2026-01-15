@@ -188,8 +188,10 @@ class MediaDataParser:
         filtered_video_tracks = Common.get_filtered_tracks(media_data.media_track_info_list, TrackType.VIDEO)
         filtered_audio_tracks = Common.get_filtered_tracks(media_data.media_track_info_list, TrackType.AUDIO)
         filtered_text_tracks = Common.get_filtered_tracks(media_data.media_track_info_list, TrackType.TEXT)
-        different_tracks_by_quality = Common.group_tracks_by_quality(filtered_audio_tracks)
-        for track in different_tracks_by_quality:
+        
+        # Process audio tracks
+        different_audio_tracks_by_quality = Common.group_tracks_by_quality(filtered_audio_tracks)
+        for track in different_audio_tracks_by_quality:
             language_code, language_name = Common.get_language_3_code_and_name(track.language)
             track.language = language_code
             track.track_name = language_name
@@ -199,7 +201,32 @@ class MediaDataParser:
                 index += 1
                 track.track_name = language_name + str(index)
             track_names_list.append(track)
-        media_data.media_track_info_list = filtered_video_tracks + track_names_list + filtered_text_tracks
+        
+        # Process text tracks (CMFT files from VTT conversion)
+        text_track_names_list = []
+        for track in filtered_text_tracks:
+            if track.language and track.language != 'und':
+                # Get language code and full name, with fallback to "Undefined"
+                try:
+                    language_code, language_name = Common.get_language_3_code_and_name(track.language)
+                    track.language = language_code
+                    track.track_name = language_name
+                except Exception as e:
+                    MediaDataParser.__logger.error(f"Text track - Could not resolve language '{track.language}': {e}")
+                    track.track_name = "Undefined"
+            else:
+                track.track_name = ""
+                MediaDataParser.__logger.warning(f"Text track - No language code")
+            
+            # Handle duplicate language names
+            if track not in text_track_names_list:
+                index = 0
+            if MediaDataParser.__is_different_track_id_same_language(track, text_track_names_list):
+                index += 1
+                track.track_name = track.track_name + str(index)
+            text_track_names_list.append(track)
+        
+        media_data.media_track_info_list = filtered_video_tracks + track_names_list + text_track_names_list
 
     @staticmethod
     def __is_different_track_id_same_language(track: MediaTrackInfo, track_names_list: List[MediaTrackInfo]):

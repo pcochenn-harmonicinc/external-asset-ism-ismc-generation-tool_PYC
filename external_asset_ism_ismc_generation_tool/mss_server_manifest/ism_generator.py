@@ -97,8 +97,13 @@ class IsmGenerator:
         text_streams = []
         text_tracks = list(track for track in media_track_infos if track.track_type == TrackType.TEXT)
         for track in text_tracks:
-            text_stream = TextStream(src=track.blob_name, system_bitrate=track.bit_rate)
+            text_stream = TextStream(
+                src=track.blob_name, 
+                system_bitrate=track.bit_rate,
+                system_language=track.language
+            )
             text_stream.add_param(name="trackID", value=str(track.track_id), value_type="data")
+            text_stream.add_param(name="trackName", value=track.track_name, value_type="data")
             text_streams.append(text_stream)
         return text_streams
 
@@ -107,7 +112,23 @@ class IsmGenerator:
         text_streams = []
         for text_data in text_datas:
             last_track_id += 1
-            text_stream = TextStream(src=text_data.name, system_bitrate=text_data.bit_rate)
+            
+            if text_data.language and text_data.language != 'und':
+                # Get track name from language code or use "Undefined" as fallback
+                try:
+                    language_code, language_name = Common.get_language_3_code_and_name(text_data.language)
+                    track_name = language_name
+                except Exception:
+                    track_name = "Undefined"
+            else:
+                track_name = ""
+            
+            text_stream = TextStream(
+                src=text_data.name, 
+                system_bitrate=text_data.bit_rate,
+                system_language=text_data.language
+            )
             text_stream.add_param(name="trackID", value=str(last_track_id), value_type="data")
+            text_stream.add_param(name="trackName", value=track_name, value_type="data")
             text_streams.append(text_stream)
         return text_streams

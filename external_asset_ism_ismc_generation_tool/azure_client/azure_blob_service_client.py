@@ -13,11 +13,13 @@ class AzureBlobServiceClient:
         cls.__logger = logger
 
     def __init__(self, settings: dict):
-        if 'container_name' in settings:
-            self.container_name = settings['container_name']
-        else:
-            self.__logger.error(f'Azure Container name is not defined in settings: {settings}')
-            raise ValueError("Azure container name is not defined")
+
+        try:
+            self.container_name = settings["container_name"]
+        except KeyError as exc:
+            missing_key = exc.args[0] if exc.args else "unknown"
+            self.__logger.error(f"Required setting '{missing_key}' is missing.")
+            raise ValueError(f"Missing required setting: {missing_key}") from exc
 
         self.connection_string = self.__get_connection_string(settings)
 
@@ -34,10 +36,10 @@ class AzureBlobServiceClient:
                                                         blob_name=blob_name)
         return blob_client.download_blob(offset=offset, length=length).readall()
 
-    def upload_blob_to_container(self, blob_name: str, content: str):
+    def upload_blob_to_container(self, blob_name: str, content: str, overwrite: bool = False):
         stream = io.BytesIO(content.encode())
         blob_client = self.container_client.get_blob_client(blob_name)
-        blob_client.upload_blob(stream)
+        blob_client.upload_blob(stream, overwrite=overwrite)
 
     def blob_exists(self, blob_name: str):
         blob_client = self.container_client.get_blob_client(blob_name)

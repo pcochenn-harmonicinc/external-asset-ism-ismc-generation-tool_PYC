@@ -2,7 +2,6 @@ from typing import Optional
 
 from construct import Container
 
-from external_asset_ism_ismc_generation_tool.common.bit_reader import BitReader
 from external_asset_ism_ismc_generation_tool.common.logger.i_logger import ILogger
 from external_asset_ism_ismc_generation_tool.common.logger.logger import Logger
 from external_asset_ism_ismc_generation_tool.media_data_parser.model.atom.avcc_atom import Avcc

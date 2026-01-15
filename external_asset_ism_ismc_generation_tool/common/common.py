@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from typing import Optional, Tuple, Union, List
 import pycountry
 
@@ -70,6 +71,54 @@ class Common:
     @staticmethod
     def get_completed_tasks(task_mapping, executor: Union[ThreadPoolExecutor, ProcessPoolExecutor]) -> any:
         return as_completed(task_mapping) if executor else task_mapping
+
+    @staticmethod
+    def extract_language_from_filename(filename: str) -> Optional[str]:
+        """
+        Extract 3-letter language code from filename.
+        Searches for any 3-letter code separated by underscores or other delimiters,
+        and validates it using pycountry to ensure it's a valid ISO 639-2/T language code.
+        This filters out file extensions like 'cmft', 'vtt' and other non-language codes.
+        Examples: espn1_ARA.cmft -> 'ara', asset-test-vtt-syntax_ENG.cmft -> 'eng'
+        """
+        # Remove extension
+        name_without_ext = filename.rsplit('.', 1)[0]
+        
+        # Split by underscores and other common delimiters
+        parts = re.split(r'[_\-\.]', name_without_ext)
+        
+        # Search through all parts for a valid language code
+        for part in parts:
+            validated_code = Common.validate_and_extract_language_code(part)
+            if validated_code:
+                return validated_code
+        
+        return 'und'  # Return 'und' if no valid code found
+
+    @staticmethod
+    def validate_and_extract_language_code(potential_code: str) -> Optional[str]:
+        """
+        Validate if a string is a valid ISO 639-2/T language code using pycountry.
+        This filters out file extensions (vtt, mp4, cmft) and other non-language 3-letter words.
+        
+        Args:
+            potential_code: A 3-letter string to validate
+            
+        Returns:
+            ISO 639-2/T alpha_3 code if valid, None otherwise
+        """
+        if not potential_code or len(potential_code) != 3 or not potential_code.isalpha():
+            return None
+            
+        try:
+            language_info = pycountry.languages.lookup(potential_code)
+            if language_info and hasattr(language_info, 'alpha_3'):
+                return language_info.alpha_3.lower()
+        except LookupError:
+            # Not a valid language code
+            pass
+        
+        return None
 
     @staticmethod
     def get_language_3_code_and_name(language_code: str):

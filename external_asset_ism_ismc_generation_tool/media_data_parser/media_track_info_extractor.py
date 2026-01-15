@@ -17,6 +17,7 @@ from external_asset_ism_ismc_generation_tool.media_data_parser.model.track_type 
 from external_asset_ism_ismc_generation_tool.media_data_parser.model.track_format import TrackFormat
 from external_asset_ism_ismc_generation_tool.media_data_parser.media_box_extractor.media_box_extractor import MediaBoxExtractor
 from external_asset_ism_ismc_generation_tool.media_data_parser.model.audio_track_data import AudioTrackData
+from external_asset_ism_ismc_generation_tool.common.common import Common
 
 
 class MediaTrackInfoExtractor:
@@ -67,6 +68,14 @@ class MediaTrackInfoExtractor:
 
         four_cc = self.__determine_four_cc()
         chunks, bitrate = self.__extract_chunks_and_bitrate_from_moof(moof_fragments)
+        
+        # Try to get language from track metadata first, then from filename
+        # If track language is 'und' (undefined), prefer filename extraction
+        language = self.trak_parser.get_track_language()
+        if not language or language == 'und':
+            filename_lang = Common.extract_language_from_filename(self.blob_name)
+            if filename_lang:
+                language = filename_lang
 
         return MediaTrackInfo(
             track_type=TrackType.TEXT,
@@ -76,7 +85,8 @@ class MediaTrackInfoExtractor:
             four_cc=four_cc,
             chunk_datas=chunks,
             blob_name=self.blob_name,
-            codec_private_data=""
+            codec_private_data="",
+            language=language
         )
 
     def __extract_video_track_info(self, moof_fragments: dict) -> MediaTrackInfo:

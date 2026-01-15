@@ -1,4 +1,3 @@
-import decimal
 from typing import Optional, List
 
 from tools.pymp4.src.pymp4.parser import Box

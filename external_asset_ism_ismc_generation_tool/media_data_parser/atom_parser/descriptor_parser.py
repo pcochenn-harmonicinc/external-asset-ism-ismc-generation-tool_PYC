@@ -11,7 +11,6 @@ from external_asset_ism_ismc_generation_tool.media_data_parser.model.descriptor.
     ESDescriptorDecoderSpecificInfo
 from external_asset_ism_ismc_generation_tool.media_data_parser.model.descriptor.dec3_descriptor import DEC3Descriptor
 from external_asset_ism_ismc_generation_tool.media_data_parser.model.descriptor.dec3_descriptor_info import DEC3DescriptorInfo
-from external_asset_ism_ismc_generation_tool.media_data_parser.model.track_format import TrackFormat
 
 class DescriptorParser:
     __logger: ILogger = Logger("DescriptorParser")

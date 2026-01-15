@@ -2,5 +2,6 @@
   "connection_string": "",
   "account_name": "",
   "account_key": "",
-  "container_name": ""
+  "container_name": "",
+  "convert_webvtt": false
 }
