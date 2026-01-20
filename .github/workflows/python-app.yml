@@ -3,7 +3,8 @@
 
 name: Python application
 
-on:
+on: 
+  workflow_dispatch:
   push:
     branches: [ "master" ]
   pull_request:
