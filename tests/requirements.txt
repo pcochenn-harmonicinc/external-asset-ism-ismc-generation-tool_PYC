@@ -6,4 +6,4 @@ construct==2.8.8
 pytest-xdist==2.3.0
 pycountry==22.3.5
 webvtt-py==0.5.1
-ttconv==1.2.0
+ttconv==1.2.1
