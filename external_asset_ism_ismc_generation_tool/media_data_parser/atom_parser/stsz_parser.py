@@ -13,7 +13,7 @@ class STSZParser:
     def redefine_logger(cls, logger: ILogger):
         cls.__logger = logger
 
-    def __init__(self, stsz_atom: Optional[Box]):
+    def __init__(self, stsz_atom: Box):
         self.stsz_atom = stsz_atom
 
     def get_track_size(self) -> int:
