@@ -2,6 +2,7 @@
 Simple test for main.py functions
 """
 import os
+import subprocess
 import sys
 import pytest
 from unittest.mock import Mock, patch
@@ -69,9 +70,10 @@ class TestConvertVttToCmft:
         # Execute
         result = convert_vtt_to_cmft(settings, use_local=True)
         
-        # Verify - should return empty summary on error
-        assert result.total == 0
+        assert result.total == 1
         assert result.successful == 0
+        assert result.failed == 1
+        assert result.results[0].filename == 'VTT conversion setup'
 
 
 class TestGenerateManifestsLocal:
@@ -106,6 +108,7 @@ class TestGenerateManifestsLocal:
         mock_blob_data.media_datas = []
         mock_blob_data.media_index_datas = []
         mock_blob_data.text_data_info_list = []
+        mock_blob_data.all_file_names = []
         mock_local_handler.get_data_from_local_files.return_value = mock_blob_data
         
         # Mock MediaData
@@ -154,7 +157,6 @@ class TestGenerateManifestsAzure:
         # Mock AzureBlobServiceClient
         mock_client_instance = Mock()
         mock_client_instance.container_client.container_name = 'test-container'
-        mock_client_instance.blob_exists.return_value = False
         mock_client_instance.upload_blob_to_container = Mock()
         mock_azure_client.return_value = mock_client_instance
         
@@ -164,6 +166,7 @@ class TestGenerateManifestsAzure:
         mock_blob_data.media_datas = []
         mock_blob_data.media_index_datas = []
         mock_blob_data.text_data_info_list = []
+        mock_blob_data.all_file_names = []
         mock_blob_handler.get_data_from_blobs.return_value = mock_blob_data
         
         # Mock MediaData
@@ -208,17 +211,16 @@ class TestGenerateManifestsAzure:
         # Mock AzureBlobServiceClient - base files exist, _new files don't
         mock_client_instance = Mock()
         mock_client_instance.container_client.container_name = 'test-container'
-        # Return True for base names (triggering _new suffix), False for _new names (available)
-        mock_client_instance.blob_exists.side_effect = lambda name: name in ('test_manifest.ism', 'test_manifest.ismc')
         mock_client_instance.upload_blob_to_container = Mock()
         mock_azure_client.return_value = mock_client_instance
         
-        # Mock BlobMediaData
+        # Mock BlobMediaData - base manifest pair already present, triggering _new suffix
         mock_blob_data = Mock()
         mock_blob_data.manifest_name = 'test_manifest'
         mock_blob_data.media_datas = []
         mock_blob_data.media_index_datas = []
         mock_blob_data.text_data_info_list = []
+        mock_blob_data.all_file_names = ['test_manifest.ism', 'test_manifest.ismc']
         mock_blob_handler.get_data_from_blobs.return_value = mock_blob_data
         
         # Mock MediaData
@@ -270,7 +272,6 @@ class TestGenerateManifestsAzure:
         }
         mock_client_instance = Mock()
         mock_client_instance.container_client.container_name = 'test-container'
-        mock_client_instance.blob_exists.side_effect = lambda name: name in existing_blobs
         mock_client_instance.upload_blob_to_container = Mock()
         mock_azure_client.return_value = mock_client_instance
 
@@ -279,6 +280,7 @@ class TestGenerateManifestsAzure:
         mock_blob_data.media_datas = []
         mock_blob_data.media_index_datas = []
         mock_blob_data.text_data_info_list = []
+        mock_blob_data.all_file_names = list(existing_blobs)
         mock_blob_handler.get_data_from_blobs.return_value = mock_blob_data
 
         mock_media = Mock()
@@ -324,7 +326,6 @@ class TestGenerateManifestsAzure:
         }
         mock_client_instance = Mock()
         mock_client_instance.container_client.container_name = 'test-container'
-        mock_client_instance.blob_exists.side_effect = lambda name: name in existing_blobs
         mock_client_instance.upload_blob_to_container = Mock()
         mock_azure_client.return_value = mock_client_instance
 
@@ -333,6 +334,7 @@ class TestGenerateManifestsAzure:
         mock_blob_data.media_datas = []
         mock_blob_data.media_index_datas = []
         mock_blob_data.text_data_info_list = []
+        mock_blob_data.all_file_names = list(existing_blobs)
         mock_blob_handler.get_data_from_blobs.return_value = mock_blob_data
 
         mock_media = Mock()
@@ -354,6 +356,25 @@ class TestGenerateManifestsAzure:
         upload_calls = mock_client_instance.upload_blob_to_container.call_args_list
         assert 'test_manifest_new2.ism' in upload_calls[0][0]
         assert 'test_manifest_new2.ismc' in upload_calls[1][0]
+
+
+class TestCliErrorHandling:
+    """Test that the CLI reports a clean error instead of a raw traceback."""
+
+    def test_no_media_or_manifest_source_reports_clean_error(self, tmp_path):
+        (tmp_path / "captions_ENG.vtt").write_text(
+            "WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nHi\n", encoding="utf-8"
+        )
+
+        main_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "main.py")
+        result = subprocess.run(
+            [sys.executable, main_path, f"-local_directory={tmp_path}"],
+            capture_output=True, text=True,
+        )
+
+        assert result.returncode != 0
+        assert "Traceback" not in result.stdout
+        assert "Manifest generation failed" in result.stdout
 
 
 if __name__ == '__main__':
